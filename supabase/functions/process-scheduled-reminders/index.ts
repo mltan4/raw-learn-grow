@@ -20,7 +20,7 @@ serve(async (req) => {
 
     const { data: reminders, error: reminderError } = await supabase
       .from("scheduled_posts")
-      .select("id,user_id,scheduled_for,status,copy_snapshot,tags,profiles!inner(email)")
+      .select("id,user_id,scheduled_for,status,copy_snapshot,tags")
       .lte("scheduled_for", now)
       .is("reminder_sent_at", null)
       .in("status", ["scheduled", "snoozed"])
@@ -29,7 +29,7 @@ serve(async (req) => {
 
     const { data: followUps, error: followUpError } = await supabase
       .from("scheduled_posts")
-      .select("id,user_id,scheduled_for,status,copy_snapshot,tags,profiles!inner(email)")
+      .select("id,user_id,scheduled_for,status,copy_snapshot,tags")
       .not("reminder_sent_at", "is", null)
       .is("follow_up_sent_at", null)
       .neq("status", "posted")
