@@ -2,39 +2,41 @@
 @tailwind components;
 @tailwind utilities;
 
+@import url('https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700&family=Space+Grotesk:wght@500;600;700&display=swap');
+
 /* Definition of the design system. All colors, gradients, fonts, etc should be defined here. 
 All colors MUST be HSL.
 */
 
 @layer base {
   :root {
-    --background: 210 25% 98%;
-    --foreground: 222 47% 11%;
+    --background: 240 28% 14%;
+    --foreground: 225 45% 96%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card: 232 36% 18%;
+    --card-foreground: 225 45% 96%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 232 36% 18%;
+    --popover-foreground: 225 45% 96%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 142 76% 58%;
+    --primary-foreground: 240 28% 14%;
 
-    --secondary: 210 26% 93%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 229 38% 24%;
+    --secondary-foreground: 225 45% 96%;
 
-    --muted: 210 26% 93%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 229 32% 22%;
+    --muted-foreground: 224 20% 74%;
 
-    --accent: 212 45% 88%;
-    --accent-foreground: 217 91% 34%;
+    --accent: 255 92% 76%;
+    --accent-foreground: 240 28% 14%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 60%;
+    --border: 230 32% 28%;
+    --input: 230 32% 28%;
+    --ring: 255 92% 76%;
 
     --radius: 0.5rem;
 
@@ -101,5 +103,15 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    font-family: 'DM Sans', system-ui, sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  h4,
+  h5,
+  h6 {
+    font-family: 'Space Grotesk', 'DM Sans', system-ui, sans-serif;
   }
 }
