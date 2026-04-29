@@ -14,7 +14,232 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      post_drafts: {
+        Row: {
+          angle: string
+          content: string
+          created_at: string
+          id: string
+          is_selected: boolean
+          note_id: string | null
+          quality_flags: string[]
+          selected_at: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+          user_id: string
+          word_count: number
+        }
+        Insert: {
+          angle: string
+          content: string
+          created_at?: string
+          id?: string
+          is_selected?: boolean
+          note_id?: string | null
+          quality_flags?: string[]
+          selected_at?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          user_id: string
+          word_count?: number
+        }
+        Update: {
+          angle?: string
+          content?: string
+          created_at?: string
+          id?: string
+          is_selected?: boolean
+          note_id?: string | null
+          quality_flags?: string[]
+          selected_at?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+          word_count?: number
+        }
+        Relationships: [
+          {
+            foreignKeyName: "post_drafts_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "writing_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      preference_signals: {
+        Row: {
+          angle: string | null
+          created_at: string
+          draft_id: string | null
+          id: string
+          notes: string | null
+          signal_type: string
+          user_id: string
+        }
+        Insert: {
+          angle?: string | null
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          notes?: string | null
+          signal_type: string
+          user_id: string
+        }
+        Update: {
+          angle?: string | null
+          created_at?: string
+          draft_id?: string | null
+          id?: string
+          notes?: string | null
+          signal_type?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "preference_signals_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "post_drafts"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      profiles: {
+        Row: {
+          created_at: string
+          default_reminder_time: string
+          email: string | null
+          id: string
+          raw_mode_default: boolean
+          timezone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          default_reminder_time?: string
+          email?: string | null
+          id?: string
+          raw_mode_default?: boolean
+          timezone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          default_reminder_time?: string
+          email?: string | null
+          id?: string
+          raw_mode_default?: boolean
+          timezone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      scheduled_posts: {
+        Row: {
+          copy_snapshot: string
+          created_at: string
+          draft_id: string | null
+          follow_up_sent_at: string | null
+          id: string
+          note_id: string | null
+          posted_at: string | null
+          reminder_sent_at: string | null
+          scheduled_for: string
+          snoozed_until: string | null
+          status: string
+          tags: string[]
+          timezone: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          copy_snapshot: string
+          created_at?: string
+          draft_id?: string | null
+          follow_up_sent_at?: string | null
+          id?: string
+          note_id?: string | null
+          posted_at?: string | null
+          reminder_sent_at?: string | null
+          scheduled_for: string
+          snoozed_until?: string | null
+          status?: string
+          tags?: string[]
+          timezone?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          copy_snapshot?: string
+          created_at?: string
+          draft_id?: string | null
+          follow_up_sent_at?: string | null
+          id?: string
+          note_id?: string | null
+          posted_at?: string | null
+          reminder_sent_at?: string | null
+          scheduled_for?: string
+          snoozed_until?: string | null
+          status?: string
+          tags?: string[]
+          timezone?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "scheduled_posts_draft_id_fkey"
+            columns: ["draft_id"]
+            isOneToOne: false
+            referencedRelation: "post_drafts"
+            referencedColumns: ["id"]
+          },
+          {
+            foreignKeyName: "scheduled_posts_note_id_fkey"
+            columns: ["note_id"]
+            isOneToOne: false
+            referencedRelation: "writing_notes"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      writing_notes: {
+        Row: {
+          content: string
+          created_at: string
+          id: string
+          raw_mode: boolean
+          source: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          id?: string
+          raw_mode?: boolean
+          source?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          id?: string
+          raw_mode?: boolean
+          source?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
