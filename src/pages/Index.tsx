@@ -371,7 +371,8 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
                 <h1 className="max-w-3xl text-5xl font-semibold leading-[0.98] tracking-normal text-foreground sm:text-7xl">If you can’t beat the AI slop, make better slop.</h1>
                 <div className="max-w-2xl space-y-3 text-base leading-7 text-muted-foreground sm:text-lg">
                   <p>Turn what you’re already building into something worth sharing. No extra thinking. No “content creation.”</p>
-                  <p>Turn messy build notes, failed prompts, and half-finished thoughts into posts that still sound like a person was there. Let’s all get left behind, on purpose.</p>
+                  <p>Turn messy build notes, failed prompts, and half-finished thoughts into posts that still sound like a person was there.</p>
+                  <p>Let’s all get left behind, on purpose.</p>
                 </div>
               </div>
             </div>
