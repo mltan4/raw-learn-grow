@@ -362,14 +362,23 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-background px-4 py-8 text-foreground">
-        <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center gap-6">
-          <div className="space-y-3">
-            <Badge variant="secondary" className="w-fit">Private writing studio</Badge>
-            <h1 className="text-4xl font-semibold tracking-normal text-foreground">If you can’t beat the AI slop, make better slop.</h1>
-            <p className="text-base leading-7 text-muted-foreground">Turn messy build notes, failed prompts, and half-finished thoughts into posts that still sound like a person was there.</p>
+      <main className="min-h-screen overflow-hidden px-4 py-8 text-foreground">
+        <section className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+          <div className="glass-panel rounded-lg p-6 sm:p-8 lg:min-h-[520px]">
+            <div className="flex h-full flex-col justify-between gap-10">
+              <div className="space-y-5">
+                <Badge variant="secondary" className="w-fit">Private writing studio</Badge>
+                <h1 className="max-w-3xl text-5xl font-semibold leading-[0.98] tracking-normal text-foreground sm:text-7xl">If you can’t beat the AI slop, make better slop.</h1>
+                <p className="max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">Turn messy build notes, failed prompts, and half-finished thoughts into posts that still sound like a person was there.</p>
+              </div>
+              <div className="grid gap-3 sm:grid-cols-3">
+                <div className="glass-tile rounded-lg p-4"><p className="text-sm text-muted-foreground">Source</p><p className="mt-2 font-display text-xl font-medium">Lovable + GitHub</p></div>
+                <div className="glass-tile rounded-lg p-4"><p className="text-sm text-muted-foreground">Angles</p><p className="mt-2 font-display text-xl font-medium">3 drafts</p></div>
+                <div className="glass-tile rounded-lg p-4"><p className="text-sm text-muted-foreground">Reminder</p><p className="mt-2 font-display text-xl font-medium">Email queue</p></div>
+              </div>
+            </div>
           </div>
-          <Card className="rounded-lg border-border/80 shadow-sm">
+          <Card className="glass-panel rounded-lg shadow-none">
             <CardContent className="space-y-4 p-5">
               <div className="space-y-2">
                 <Label>Email</Label>
@@ -392,29 +401,45 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
   }
 
   return (
-    <main className="min-h-screen bg-background text-foreground">
-      <div className="mx-auto w-full max-w-6xl space-y-8 px-4 py-6 sm:px-6 lg:px-8">
-        <header className="flex flex-col gap-4 border-b border-border pb-6 sm:flex-row sm:items-end sm:justify-between">
+    <main className="min-h-screen text-foreground">
+      <div className="mx-auto w-full max-w-7xl space-y-5 px-4 py-5 sm:px-6 lg:px-8">
+        <header className="glass-panel flex flex-col gap-4 rounded-lg p-5 sm:flex-row sm:items-end sm:justify-between lg:p-6">
           <div className="space-y-2">
             <Badge variant="secondary" className="w-fit">AI build notes</Badge>
-            <h1 className="text-3xl font-semibold tracking-normal sm:text-5xl">Writing studio</h1>
+            <h1 className="text-4xl font-semibold tracking-normal sm:text-6xl">Writing studio</h1>
             <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">Experiments, failures, observations, half-baked ideas. Specifics first. Polish later.</p>
           </div>
           <Button variant="ghost" onClick={() => supabase.auth.signOut()} className="w-fit"><LogOut /> Sign out</Button>
         </header>
 
-        <section className="space-y-4">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <section className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,0.75fr)]">
+          <div className="glass-panel space-y-4 rounded-lg p-4 sm:p-5">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-medium">Rough notes</h2>
               <p className="text-sm text-muted-foreground">Paste notes, pull this project context, or import public GitHub activity.</p>
             </div>
-            <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
+            <div className="glass-tile flex items-center gap-3 rounded-lg px-3 py-2">
               <Label htmlFor="raw-mode" className="text-sm">Make it more raw</Label>
               <Switch id="raw-mode" checked={rawMode} onCheckedChange={setRawMode} />
             </div>
+            </div>
+            <Textarea
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+              placeholder="What I tried... what broke... the weird workaround... the part that changed my mind..."
+              className="min-h-[300px] resize-y rounded-lg bg-card/80 text-base leading-7"
+            />
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+              <p className="text-sm text-muted-foreground">{wordCount(notes)} words in notes</p>
+              <Button onClick={() => generateDrafts()} disabled={isGenerating} size="lg" className="w-full sm:w-fit">
+                {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />} Generate 3 drafts
+              </Button>
+            </div>
           </div>
-          <div className="grid gap-3 rounded-lg border border-border bg-card p-4 lg:grid-cols-[1fr_1.5fr]">
+
+          <div className="grid gap-5">
+            <div className="glass-panel grid gap-3 rounded-lg p-4">
             <div className="space-y-3">
               <Label>Import source</Label>
               <div className="grid grid-cols-3 gap-2">
@@ -430,23 +455,24 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
                 {isImportingSource ? <Loader2 className="animate-spin" /> : <Github />} Import
               </Button>
             </div>
-          </div>
-          <Textarea
-            value={notes}
-            onChange={(event) => setNotes(event.target.value)}
-            placeholder="What I tried... what broke... the weird workaround... the part that changed my mind..."
-            className="min-h-[220px] resize-y rounded-lg bg-card text-base leading-7"
-          />
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-muted-foreground">{wordCount(notes)} words in notes</p>
-            <Button onClick={() => generateDrafts()} disabled={isGenerating} size="lg" className="w-full sm:w-fit">
-              {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />} Generate 3 drafts
-            </Button>
+            </div>
+
+            <Card className="glass-panel rounded-lg shadow-none">
+              <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Mail /> Reminder settings</CardTitle></CardHeader>
+              <CardContent className="space-y-4">
+                <div className="space-y-2">
+                  <Label>Timezone</Label>
+                  <Input value={profile.timezone} onChange={(event) => setProfile({ ...profile, timezone: event.target.value })} />
+                </div>
+                <p className="text-sm leading-6 text-muted-foreground">Email reminders are ready in the app logic. A sender domain still needs to be connected before they can be delivered.</p>
+                <Button variant="outline" onClick={saveSettings}>Save defaults</Button>
+              </CardContent>
+            </Card>
           </div>
         </section>
 
-        <section className="space-y-4">
-          <div className="flex items-center justify-between">
+        <section className="glass-panel space-y-4 rounded-lg p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <h2 className="text-xl font-medium">Draft options</h2>
             <Select value={tagFilter} onValueChange={setTagFilter}>
               <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
@@ -456,9 +482,9 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
               </SelectContent>
             </Select>
           </div>
-          <div className="grid gap-4 lg:grid-cols-3">
+          <div className="grid auto-rows-fr gap-4 lg:grid-cols-3">
             {filteredDrafts.slice(0, 9).map((draft) => (
-              <Card key={draft.id} className={`rounded-lg border-border bg-card shadow-sm ${selectedDraftId === draft.id ? "ring-2 ring-primary" : ""}`}>
+              <Card key={draft.id} className={`glass-tile rounded-lg shadow-none ${selectedDraftId === draft.id ? "ring-2 ring-primary" : ""}`}>
                 <CardHeader className="space-y-3 p-4">
                   <div className="flex items-start justify-between gap-3">
                     <div>
@@ -484,17 +510,17 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
               </Card>
             ))}
             {!filteredDrafts.length ? (
-              <div className="rounded-lg border border-dashed border-border bg-card p-8 text-center text-sm text-muted-foreground lg:col-span-3">Generated drafts will appear here.</div>
+              <div className="glass-tile rounded-lg border-dashed p-8 text-center text-sm text-muted-foreground lg:col-span-3">Generated drafts will appear here.</div>
             ) : null}
           </div>
         </section>
 
-        <section className="grid gap-4 lg:grid-cols-[1.2fr_0.8fr]">
-          <Card className="rounded-lg border-border shadow-sm">
+        <section className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
+          <Card className="glass-panel rounded-lg shadow-none">
             <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><CalendarClock /> Select and schedule</CardTitle></CardHeader>
             <CardContent className="space-y-5">
               {selectedDraft ? (
-                <div className="space-y-3 rounded-lg border border-border bg-secondary/50 p-4">
+                <div className="glass-tile space-y-3 rounded-lg p-4">
                   <p className="text-sm font-medium">{selectedDraft.title}</p>
                   <p className="line-clamp-4 text-sm leading-6 text-muted-foreground">{selectedDraft.content}</p>
                   <div className="flex flex-wrap gap-2">
@@ -525,54 +551,42 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
             </CardContent>
           </Card>
 
-          <Card className="rounded-lg border-border shadow-sm">
-            <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Mail /> Reminder settings</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="space-y-2">
-                <Label>Timezone</Label>
-                <Input value={profile.timezone} onChange={(event) => setProfile({ ...profile, timezone: event.target.value })} />
-              </div>
-              <p className="text-sm leading-6 text-muted-foreground">Email reminders are ready in the app logic. A sender domain still needs to be connected before they can be delivered.</p>
-              <Button variant="outline" onClick={saveSettings}>Save defaults</Button>
-            </CardContent>
-          </Card>
-        </section>
-
-        <section className="space-y-4">
-          <h2 className="text-xl font-medium">Upcoming queue</h2>
-          <div className="space-y-3">
-            {upcomingPosts.map((post) => (
-              <Card key={post.id} className="rounded-lg border-border shadow-sm">
-                <CardContent className="flex flex-col gap-4 p-4 lg:flex-row lg:items-center lg:justify-between">
-                  <div className="space-y-2">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge>{post.status}</Badge>
-                      <span className="text-sm text-muted-foreground">{format(new Date(post.scheduled_for), "EEE, MMM d • h:mm a")}</span>
+          <section className="glass-panel space-y-4 rounded-lg p-4 sm:p-5">
+            <h2 className="text-xl font-medium">Upcoming queue</h2>
+            <div className="space-y-3">
+              {upcomingPosts.map((post) => (
+                <Card key={post.id} className="glass-tile rounded-lg shadow-none">
+                  <CardContent className="flex flex-col gap-4 p-4 xl:flex-row xl:items-center xl:justify-between">
+                    <div className="space-y-2">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <Badge>{post.status}</Badge>
+                        <span className="text-sm text-muted-foreground">{format(new Date(post.scheduled_for), "EEE, MMM d • h:mm a")}</span>
+                      </div>
+                      <p className="line-clamp-3 text-sm leading-6">{post.copy_snapshot}</p>
                     </div>
-                    <p className="line-clamp-3 text-sm leading-6">{post.copy_snapshot}</p>
-                  </div>
-                  <div className="grid grid-cols-3 gap-2 lg:w-72">
-                    <Button variant="outline" size="sm" onClick={() => copyText(post.copy_snapshot)}>Copy</Button>
-                    <Button variant="secondary" size="sm" onClick={() => updatePostStatus(post, "posted")}>Posted</Button>
-                    <Button variant="outline" size="sm" onClick={() => snoozePost(post)}>Snooze</Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {!upcomingPosts.length ? <div className="rounded-lg border border-dashed border-border bg-card p-6 text-sm text-muted-foreground">No upcoming posts yet.</div> : null}
-          </div>
+                    <div className="grid grid-cols-3 gap-2 xl:w-72">
+                      <Button variant="outline" size="sm" onClick={() => copyText(post.copy_snapshot)}>Copy</Button>
+                      <Button variant="secondary" size="sm" onClick={() => updatePostStatus(post, "posted")}>Posted</Button>
+                      <Button variant="outline" size="sm" onClick={() => snoozePost(post)}>Snooze</Button>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+              {!upcomingPosts.length ? <div className="glass-tile rounded-lg border-dashed p-6 text-sm text-muted-foreground">No upcoming posts yet.</div> : null}
+            </div>
+          </section>
         </section>
 
-        <section className="space-y-4 pb-12">
+        <section className="glass-panel space-y-4 rounded-lg p-4 pb-5 sm:p-5">
           <h2 className="flex items-center gap-2 text-xl font-medium"><Archive /> Past drafts and posts</h2>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card className="rounded-lg border-border shadow-sm">
+            <Card className="glass-tile rounded-lg shadow-none">
               <CardHeader><CardTitle className="text-base">Recent drafts</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 {drafts.slice(0, 5).map((draft) => <p key={draft.id} className="border-b border-border pb-3 text-sm leading-6 last:border-0">{draft.title}</p>)}
               </CardContent>
             </Card>
-            <Card className="rounded-lg border-border shadow-sm">
+            <Card className="glass-tile rounded-lg shadow-none">
               <CardHeader><CardTitle className="text-base">Posted</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 {postedPosts.slice(0, 5).map((post) => <p key={post.id} className="border-b border-border pb-3 text-sm leading-6 last:border-0">{post.copy_snapshot}</p>)}
