@@ -82,7 +82,7 @@ serve(async (req) => {
 
     if (apiKey) {
       const angles = regenerateAngle ? regenerateAngle : "insight, story, tactical";
-      const prompt = `Convert these rough Lovable project notes into ${regenerateAngle ? "one" : "three"} draft post${regenerateAngle ? "" : "s"}. Angles required: ${angles}.\n\nVoice rules: raw, honest, slightly unpolished, like a Slack/community message. No hooks. No LinkedIn tone. No hype. 120 to 250 words each. Specifics over filler. Focus on what broke, what changed my mind, and what I learned.\n\nStructure can be loose: what I tried, what happened, what I learned, optional what I would do differently.\n\nRaw mode: ${rawMode ? "ON — shorter sentences, direct language, incomplete thoughts allowed, include failed attempts." : "OFF — slightly clearer, still informal."}\n\nRecent selection patterns to respect without overfitting: ${selectedPatterns.join("; ") || "none yet"}.\n\nReturn only JSON with {"drafts":[{"angle":"insight|story|tactical","title":"...","content":"...","tags":["..."],"quality_flags":["..."]}]}.\n\nNotes:\n${notes}`;
+      const prompt = `Convert these rough Lovable project notes into ${regenerateAngle ? "one" : "three"} draft post${regenerateAngle ? "" : "s"}. Angles required: ${angles}.\n\nAudience: write for smart people who did not see the build, do not know the app, and do not need every implementation detail. Give just enough context to understand the point.\n\nVoice rules: friendly, plainspoken, honest, slightly unpolished, like a short Slack/community message. No hooks. No LinkedIn tone. No hype. 80 to 160 words each. Keep the main idea simple. Explain jargon or skip it. Avoid dense step-by-step detail, long backstory, feature lists, and overly specific technical names unless they are essential.\n\nStructure can be loose: the situation, what happened, the simple takeaway.\n\nRaw mode: ${rawMode ? "ON — shorter sentences, direct language, incomplete thoughts allowed, include failed attempts." : "OFF — clearer and approachable, still informal."}\n\nRecent selection patterns to respect without overfitting: ${selectedPatterns.join("; ") || "none yet"}.\n\nReturn only JSON with {"drafts":[{"angle":"insight|story|tactical","title":"...","content":"...","tags":["..."],"quality_flags":["..."]}]}.\n\nNotes:\n${notes}`;
 
       const aiResponse = await fetch("https://ai.gateway.lovable.dev/v1/chat/completions", {
         method: "POST",
@@ -90,7 +90,7 @@ serve(async (req) => {
         body: JSON.stringify({
           model: "google/gemini-3-flash-preview",
           messages: [
-            { role: "system", content: "You write candid build-in-public posts from rough AI-building notes. Return strict JSON only." },
+            { role: "system", content: "You write friendly build-in-public posts for readers who were not part of the build. Keep them simple, human, and easy to understand. Return strict JSON only." },
             { role: "user", content: prompt },
           ],
           response_format: { type: "json_object" },
