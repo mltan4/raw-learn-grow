@@ -374,12 +374,6 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
                   <p>Turn messy build notes, failed prompts, and half-finished thoughts into posts that still sound like a person was there. Let’s all get left behind, on purpose.</p>
                 </div>
               </div>
-              <div className="grid max-w-sm gap-3">
-                <div className="slop-orbit rounded-lg p-4">
-                  <p className="text-sm leading-6 text-muted-foreground">“make it more human”</p>
-                  <p className="mt-3 font-display text-2xl font-semibold">kept the weird part</p>
-                </div>
-              </div>
             </div>
           </div>
           <Card className="glass-panel rounded-lg shadow-none">
