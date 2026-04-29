@@ -363,13 +363,16 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
   if (!user) {
     return (
       <main className="min-h-screen overflow-hidden px-4 py-8 text-foreground">
-        <section className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center gap-4 lg:grid-cols-[1.15fr_0.85fr]">
+        <section className="mx-auto grid w-full max-w-6xl items-center gap-4 lg:grid-cols-[1.15fr_0.85fr]">
           <div className="glass-panel slop-stage rounded-lg p-6 sm:p-8 lg:min-h-[520px]">
             <div className="flex h-full flex-col justify-center gap-8">
               <div className="space-y-6">
                 <Badge variant="secondary" className="w-fit">Private writing studio</Badge>
                 <h1 className="max-w-3xl text-5xl font-semibold leading-[0.98] tracking-normal text-foreground sm:text-7xl">If you can’t beat the AI slop, make better slop.</h1>
-                <p className="max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">Turn messy build notes, failed prompts, and half-finished thoughts into posts that still sound like a person was there. Let’s all get left behind, on purpose.</p>
+                <div className="max-w-2xl space-y-3 text-base leading-7 text-muted-foreground sm:text-lg">
+                  <p>Turn what you’re already building into something worth sharing. No extra thinking. No “content creation.”</p>
+                  <p>Turn messy build notes, failed prompts, and half-finished thoughts into posts that still sound like a person was there. Let’s all get left behind, on purpose.</p>
+                </div>
               </div>
               <div className="grid gap-3 sm:grid-cols-[0.92fr_1.08fr]">
                 <div className="slop-orbit rounded-lg p-4">
@@ -405,6 +408,58 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
               <Button onClick={signInWithGoogle} variant="outline" className="w-full">Continue with Google</Button>
             </CardContent>
           </Card>
+        </section>
+
+        <section className="mx-auto mt-4 grid w-full max-w-6xl gap-4 lg:grid-cols-[0.95fr_1.05fr]">
+          <div className="glass-panel rounded-lg p-5 sm:p-6">
+            <Badge variant="outline" className="w-fit">What it does</Badge>
+            <div className="mt-5 space-y-5">
+              <h2 className="max-w-xl font-display text-3xl font-semibold leading-tight sm:text-5xl">Your build already has the post inside it.</h2>
+              <div className="space-y-4 text-base leading-7 text-muted-foreground">
+                <p>This app pulls from your prompts, notes, and work in progress, figures out what you were trying to do, and turns it into real, useful learnings.</p>
+                <p>You don’t sit down to write posts. You build. Every prompt, experiment, and half-finished idea already contains signal.</p>
+                <p>This app reads that mess and turns it into something others can learn from.</p>
+              </div>
+            </div>
+          </div>
+
+          <div className="grid gap-4 sm:grid-cols-2">
+            {[
+              ["Ingests your raw work", "Prompts, notes, experiments, repo activity, whatever you’re already doing"],
+              ["Understands intent and outcomes", "What you were trying to do, what broke, what changed"],
+              ["Generates drafts", "Three different takes: insight, story, tactical"],
+              ["Keeps you consistent", "Pick one, schedule it, get reminded to post"],
+            ].map(([title, copy], index) => (
+              <div key={title} className="glass-tile rounded-lg p-5">
+                <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-md bg-primary/15 text-primary">
+                  {index === 0 ? <PenLine /> : index === 1 ? <Sparkles /> : index === 2 ? <Archive /> : <CalendarClock />}
+                </div>
+                <h3 className="font-display text-xl font-semibold leading-6">{title}</h3>
+                <p className="mt-3 text-sm leading-6 text-muted-foreground">{copy}</p>
+              </div>
+            ))}
+          </div>
+        </section>
+
+        <section className="mx-auto mt-4 grid w-full max-w-6xl gap-4 lg:grid-cols-[1.05fr_0.95fr]">
+          <div className="glass-panel rounded-lg p-5 sm:p-6">
+            <h2 className="font-display text-3xl font-semibold leading-tight sm:text-4xl">Most people don’t share what they learn because:</h2>
+            <div className="mt-6 grid gap-3 sm:grid-cols-3">
+              {[
+                "It feels like extra work",
+                "They think they need insights upfront",
+                "They overthink or never publish",
+              ].map((reason) => (
+                <div key={reason} className="glass-tile rounded-lg p-4 text-sm leading-6 text-muted-foreground">{reason}</div>
+              ))}
+            </div>
+          </div>
+
+          <div className="glass-panel slop-stage rounded-lg p-5 sm:p-6">
+            <Badge variant="secondary" className="w-fit">This flips it</Badge>
+            <p className="mt-5 font-display text-3xl font-semibold leading-tight sm:text-4xl">You don’t create insights first.</p>
+            <p className="mt-4 text-base leading-7 text-muted-foreground">You build, and the insights get extracted after. A system that turns messy, real work into useful signal for other builders.</p>
+          </div>
         </section>
       </main>
     );
