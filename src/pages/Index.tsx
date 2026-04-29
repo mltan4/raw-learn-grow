@@ -366,8 +366,8 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
         <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center gap-6">
           <div className="space-y-3">
             <Badge variant="secondary" className="w-fit">Private writing studio</Badge>
-            <h1 className="text-4xl font-semibold tracking-normal text-foreground">Turn rough AI build notes into honest posts.</h1>
-            <p className="text-base leading-7 text-muted-foreground">Sign in to store drafts, schedule reminders, and keep a record of what actually happened.</p>
+            <h1 className="text-4xl font-semibold tracking-normal text-foreground">If you can’t beat the AI slop, make better slop.</h1>
+            <p className="text-base leading-7 text-muted-foreground">Turn messy build notes, failed prompts, and half-finished thoughts into posts that still sound like a person was there.</p>
           </div>
           <Card className="rounded-lg border-border/80 shadow-sm">
             <CardContent className="space-y-4 p-5">
