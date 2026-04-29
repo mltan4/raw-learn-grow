@@ -1,3 +1,5 @@
+@import url("https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,700&family=Space+Grotesk:wght@400;500;600;700&display=swap");
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -8,33 +10,42 @@ All colors MUST be HSL.
 
 @layer base {
   :root {
-    --background: 210 25% 98%;
-    --foreground: 222 47% 11%;
+    --background: 236 31% 14%;
+    --foreground: 186 72% 96%;
 
-    --card: 0 0% 100%;
-    --card-foreground: 222 47% 11%;
+    --card: 235 28% 18%;
+    --card-foreground: 186 72% 96%;
 
-    --popover: 0 0% 100%;
-    --popover-foreground: 222 47% 11%;
+    --popover: 235 28% 18%;
+    --popover-foreground: 186 72% 96%;
 
-    --primary: 217 91% 60%;
-    --primary-foreground: 210 40% 98%;
+    --primary: 142 69% 58%;
+    --primary-foreground: 236 31% 10%;
 
-    --secondary: 210 26% 93%;
-    --secondary-foreground: 222 47% 11%;
+    --secondary: 240 36% 28%;
+    --secondary-foreground: 186 72% 96%;
 
-    --muted: 210 26% 93%;
-    --muted-foreground: 215 16% 47%;
+    --muted: 236 25% 24%;
+    --muted-foreground: 190 24% 77%;
 
-    --accent: 212 45% 88%;
-    --accent-foreground: 217 91% 34%;
+    --accent: 260 83% 75%;
+    --accent-foreground: 236 31% 10%;
 
     --destructive: 0 84.2% 60.2%;
     --destructive-foreground: 210 40% 98%;
 
-    --border: 214 32% 91%;
-    --input: 214 32% 91%;
-    --ring: 217 91% 60%;
+    --border: 184 82% 74% / 0.22;
+    --input: 184 82% 74% / 0.24;
+    --ring: 142 69% 58%;
+
+    --glass: 235 28% 18% / 0.64;
+    --glass-strong: 235 30% 22% / 0.82;
+    --aurora-cyan: 184 82% 74%;
+    --aurora-mint: 142 69% 58%;
+    --aurora-violet: 260 83% 75%;
+    --aurora-indigo: 235 36% 25%;
+    --gradient-aurora: radial-gradient(circle at 15% 10%, hsl(var(--aurora-mint) / 0.36), transparent 34%), radial-gradient(circle at 85% 0%, hsl(var(--aurora-violet) / 0.38), transparent 30%), radial-gradient(circle at 55% 85%, hsl(var(--aurora-cyan) / 0.22), transparent 36%), linear-gradient(135deg, hsl(var(--background)), hsl(var(--aurora-indigo)));
+    --shadow-glass: 0 24px 80px -32px hsl(236 31% 5% / 0.78);
 
     --radius: 0.5rem;
 
@@ -101,5 +112,30 @@ All colors MUST be HSL.
 
   body {
     @apply bg-background text-foreground;
+    min-height: 100vh;
+    background: var(--gradient-aurora);
+    font-family: "DM Sans", sans-serif;
+  }
+
+  h1,
+  h2,
+  h3,
+  .font-display {
+    font-family: "Space Grotesk", sans-serif;
+  }
+}
+
+@layer components {
+  .glass-panel {
+    border: 1px solid hsl(var(--border));
+    background: linear-gradient(145deg, hsl(var(--glass-strong)), hsl(var(--glass)));
+    box-shadow: var(--shadow-glass);
+    backdrop-filter: blur(22px);
+  }
+
+  .glass-tile {
+    border: 1px solid hsl(var(--border));
+    background: hsl(var(--glass));
+    backdrop-filter: blur(18px);
   }
 }
