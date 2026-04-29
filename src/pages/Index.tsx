@@ -364,17 +364,27 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
     return (
       <main className="min-h-screen overflow-hidden px-4 py-8 text-foreground">
         <section className="mx-auto grid min-h-[calc(100vh-4rem)] w-full max-w-5xl items-center gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="glass-panel rounded-lg p-6 sm:p-8 lg:min-h-[520px]">
-            <div className="flex h-full flex-col justify-between gap-10">
-              <div className="space-y-5">
+          <div className="glass-panel slop-stage rounded-lg p-6 sm:p-8 lg:min-h-[520px]">
+            <div className="flex h-full flex-col justify-center gap-8">
+              <div className="space-y-6">
                 <Badge variant="secondary" className="w-fit">Private writing studio</Badge>
                 <h1 className="max-w-3xl text-5xl font-semibold leading-[0.98] tracking-normal text-foreground sm:text-7xl">If you can’t beat the AI slop, make better slop.</h1>
                 <p className="max-w-xl text-base leading-7 text-muted-foreground sm:text-lg">Turn messy build notes, failed prompts, and half-finished thoughts into posts that still sound like a person was there. Let’s all get left behind, on purpose.</p>
               </div>
-              <div className="grid gap-3 sm:grid-cols-3">
-                <div className="glass-tile rounded-lg p-4"><p className="text-sm text-muted-foreground">Source</p><p className="mt-2 font-display text-xl font-medium">Lovable + GitHub</p></div>
-                <div className="glass-tile rounded-lg p-4"><p className="text-sm text-muted-foreground">Angles</p><p className="mt-2 font-display text-xl font-medium">3 drafts</p></div>
-                <div className="glass-tile rounded-lg p-4"><p className="text-sm text-muted-foreground">Reminder</p><p className="mt-2 font-display text-xl font-medium">Email queue</p></div>
+              <div className="grid gap-3 sm:grid-cols-[0.92fr_1.08fr]">
+                <div className="slop-orbit rounded-lg p-4">
+                  <p className="font-display text-lg font-medium">prompt 14 failed beautifully</p>
+                  <p className="mt-3 h-2 w-24 rounded-full bg-primary/60" />
+                  <p className="mt-2 h-2 w-32 rounded-full bg-accent/50" />
+                </div>
+                <div className="slop-orbit rounded-lg p-4 sm:mt-8">
+                  <p className="text-sm leading-6 text-muted-foreground">“make it more human”</p>
+                  <p className="mt-3 font-display text-2xl font-semibold">kept the weird part</p>
+                </div>
+                <div className="slop-orbit rounded-lg p-4 sm:col-span-2 sm:mx-10">
+                  <p className="text-sm uppercase tracking-normal text-muted-foreground">draft debris</p>
+                  <p className="mt-2 text-sm leading-6">bugs, commits, deleted paragraphs, tiny wins, strange little proofs you were actually there.</p>
+                </div>
               </div>
             </div>
           </div>
