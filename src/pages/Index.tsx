@@ -577,16 +577,16 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
           </section>
         </section>
 
-        <section className="space-y-4 pb-12">
+        <section className="glass-panel space-y-4 rounded-lg p-4 pb-5 sm:p-5">
           <h2 className="flex items-center gap-2 text-xl font-medium"><Archive /> Past drafts and posts</h2>
           <div className="grid gap-4 lg:grid-cols-2">
-            <Card className="rounded-lg border-border shadow-sm">
+            <Card className="glass-tile rounded-lg shadow-none">
               <CardHeader><CardTitle className="text-base">Recent drafts</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 {drafts.slice(0, 5).map((draft) => <p key={draft.id} className="border-b border-border pb-3 text-sm leading-6 last:border-0">{draft.title}</p>)}
               </CardContent>
             </Card>
-            <Card className="rounded-lg border-border shadow-sm">
+            <Card className="glass-tile rounded-lg shadow-none">
               <CardHeader><CardTitle className="text-base">Posted</CardTitle></CardHeader>
               <CardContent className="space-y-3">
                 {postedPosts.slice(0, 5).map((post) => <p key={post.id} className="border-b border-border pb-3 text-sm leading-6 last:border-0">{post.copy_snapshot}</p>)}
