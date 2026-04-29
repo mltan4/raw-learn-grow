@@ -372,7 +372,7 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
                 <div className="max-w-2xl space-y-3 text-base leading-7 text-muted-foreground sm:text-lg">
                   <p>Turn what you’re already building into something worth sharing. No extra thinking. No “content creation.”</p>
                   <p>Turn messy build notes, failed prompts, and half-finished thoughts into posts that still sound like a person was there.</p>
-                  <p>Let’s all get left behind, on purpose.</p>
+                  <p>Let’s all get left behind</p>
                 </div>
               </div>
             </div>
