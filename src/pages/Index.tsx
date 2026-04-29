@@ -374,19 +374,10 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
                   <p>Turn messy build notes, failed prompts, and half-finished thoughts into posts that still sound like a person was there. Let’s all get left behind, on purpose.</p>
                 </div>
               </div>
-              <div className="grid gap-3 sm:grid-cols-[0.92fr_1.08fr]">
+              <div className="grid max-w-sm gap-3">
                 <div className="slop-orbit rounded-lg p-4">
-                  <p className="font-display text-lg font-medium">prompt 14 failed beautifully</p>
-                  <p className="mt-3 h-2 w-24 rounded-full bg-primary/60" />
-                  <p className="mt-2 h-2 w-32 rounded-full bg-accent/50" />
-                </div>
-                <div className="slop-orbit rounded-lg p-4 sm:mt-8">
                   <p className="text-sm leading-6 text-muted-foreground">“make it more human”</p>
                   <p className="mt-3 font-display text-2xl font-semibold">kept the weird part</p>
-                </div>
-                <div className="slop-orbit rounded-lg p-4 sm:col-span-2 sm:mx-10">
-                  <p className="text-sm uppercase tracking-normal text-muted-foreground">draft debris</p>
-                  <p className="mt-2 text-sm leading-6">bugs, commits, deleted paragraphs, tiny wins, strange little proofs you were actually there.</p>
                 </div>
               </div>
             </div>
