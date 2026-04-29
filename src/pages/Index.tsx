@@ -407,11 +407,28 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-medium">Rough notes</h2>
-              <p className="text-sm text-muted-foreground">Paste directly from a Lovable project or your scratchpad.</p>
+              <p className="text-sm text-muted-foreground">Paste notes, pull this project context, or import public GitHub activity.</p>
             </div>
             <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
               <Label htmlFor="raw-mode" className="text-sm">Make it more raw</Label>
               <Switch id="raw-mode" checked={rawMode} onCheckedChange={setRawMode} />
+            </div>
+          </div>
+          <div className="grid gap-3 rounded-lg border border-border bg-card p-4 lg:grid-cols-[1fr_1.5fr]">
+            <div className="space-y-3">
+              <Label>Import source</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <Button type="button" variant={noteSource === "manual" ? "secondary" : "outline"} onClick={() => setNoteSource("manual")}>Paste</Button>
+                <Button type="button" variant={noteSource === "lovable" ? "secondary" : "outline"} onClick={useCurrentLovableProject}>Lovable</Button>
+                <Button type="button" variant={noteSource === "github" ? "secondary" : "outline"} onClick={() => setNoteSource("github")}><Github /></Button>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+              <Input value={githubHandle} onChange={(event) => setGithubHandle(event.target.value)} placeholder="GitHub username" />
+              <Input value={githubRepo} onChange={(event) => setGithubRepo(event.target.value)} placeholder="Optional repo" />
+              <Button type="button" variant="outline" onClick={importGitHubActivity} disabled={isImportingSource}>
+                {isImportingSource ? <Loader2 className="animate-spin" /> : <Github />} Import
+              </Button>
             </div>
           </div>
           <Textarea
