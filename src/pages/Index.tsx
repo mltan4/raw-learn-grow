@@ -362,31 +362,15 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
 
   if (!user) {
     return (
-      <main className="min-h-screen bg-background px-4 py-6 text-foreground sm:py-8">
-        <section className="mx-auto grid min-h-[calc(100vh-3rem)] w-full max-w-6xl content-center gap-4 lg:grid-cols-[1.15fr_0.85fr]">
-          <div className="grid gap-4 sm:grid-cols-2">
-            <div className="flex min-h-[360px] flex-col justify-between rounded-lg border border-border bg-card/90 p-6 shadow-sm sm:col-span-2 lg:min-h-[520px]">
-              <Badge variant="secondary" className="w-fit">Private writing studio</Badge>
-              <div className="space-y-5">
-                <h1 className="max-w-3xl text-5xl font-semibold leading-none tracking-normal text-foreground sm:text-7xl">If you can’t beat the AI slop, weaponize it.</h1>
-                <p className="max-w-2xl text-lg leading-7 text-muted-foreground">Make others feel so left behind they finally stop pretending polish is the point.</p>
-              </div>
-            </div>
-            <div className="rounded-lg border border-border bg-secondary/70 p-5">
-              <p className="text-sm font-medium uppercase text-primary">Raw material</p>
-              <p className="mt-6 text-2xl leading-8">failed prompts, weird fixes, half-thoughts, actual build scars</p>
-            </div>
-            <div className="rounded-lg border border-border bg-accent/80 p-5 text-accent-foreground">
-              <p className="text-sm font-medium uppercase">Output</p>
-              <p className="mt-6 text-2xl leading-8">posts that sound like someone was actually there</p>
-            </div>
+      <main className="min-h-screen bg-background px-4 py-8 text-foreground">
+        <section className="mx-auto flex min-h-[calc(100vh-4rem)] w-full max-w-md flex-col justify-center gap-6">
+          <div className="space-y-3">
+            <Badge variant="secondary" className="w-fit">Private writing studio</Badge>
+            <h1 className="text-4xl font-semibold tracking-normal text-foreground">If you can’t beat the AI slop, make better slop.</h1>
+            <p className="text-base leading-7 text-muted-foreground">Turn messy build notes, failed prompts, and half-finished thoughts into posts that still sound like a person was there.</p>
           </div>
-          <Card className="rounded-lg border-border bg-card/95 shadow-sm">
-            <CardContent className="space-y-4 p-5 sm:p-6">
-              <div className="space-y-2 pb-2">
-                <h2 className="text-2xl font-semibold">Get in.</h2>
-                <p className="text-sm leading-6 text-muted-foreground">Draft from the mess before everyone else turns it into a thread.</p>
-              </div>
+          <Card className="rounded-lg border-border/80 shadow-sm">
+            <CardContent className="space-y-4 p-5">
               <div className="space-y-2">
                 <Label>Email</Label>
                 <Input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} type="email" placeholder="you@example.com" />
