@@ -5,6 +5,7 @@ import {
   CalendarClock,
   Check,
   Clipboard,
+  Github,
   Loader2,
   LogOut,
   Mail,
@@ -56,6 +57,8 @@ type Profile = {
   email: string | null;
 };
 
+type NoteSource = "manual" | "lovable" | "github";
+
 const angleLabels: Record<DraftAngle, string> = {
   insight: "Insight-first",
   story: "Story / what happened",
@@ -63,6 +66,12 @@ const angleLabels: Record<DraftAngle, string> = {
 };
 
 const tagOptions = ["experiments", "failures", "observations", "half-baked ideas", "prompting", "workflows", "mistakes", "tools"];
+
+const currentProjectSeed = `Source: current Lovable writing-studio project
+Goal: build a private app that turns rough Lovable project notes, prompts, failures, observations, and half-baked ideas into honest draft posts.
+What changed: the app now has auth, rough notes, raw mode, AI-generated angles, scheduling, queue, archive, tags, and preference signals.
+Useful tension: the first version is functional, but the real value depends on importing messier source material from actual builds instead of writing polished notes after the fact.
+Potential post angle: how the source material matters more than the final AI prompt. If the notes hide the failure, the generated post becomes generic.`;
 
 const nextPostingDate = (day: "monday" | "wednesday" | "thursday", time: string) => {
   const target = { monday: 1, wednesday: 3, thursday: 4 }[day];
@@ -88,6 +97,7 @@ const Index = () => {
     email: null,
   });
   const [notes, setNotes] = useState("");
+  const [noteSource, setNoteSource] = useState<NoteSource>("manual");
   const [rawMode, setRawMode] = useState(false);
   const [drafts, setDrafts] = useState<Draft[]>([]);
   const [scheduled, setScheduled] = useState<ScheduledPost[]>([]);
@@ -96,6 +106,9 @@ const Index = () => {
   const [scheduleTime, setScheduleTime] = useState("09:00");
   const [tagFilter, setTagFilter] = useState("all");
   const [isGenerating, setIsGenerating] = useState(false);
+  const [githubHandle, setGithubHandle] = useState("");
+  const [githubRepo, setGithubRepo] = useState("");
+  const [isImportingSource, setIsImportingSource] = useState(false);
 
   const selectedDraft = drafts.find((draft) => draft.id === selectedDraftId) ?? null;
 
@@ -175,6 +188,68 @@ const Index = () => {
     }
   };
 
+  const useCurrentLovableProject = () => {
+    setNoteSource("lovable");
+    setNotes((current) => (current.trim() ? `${current.trim()}\n\n---\n\n${currentProjectSeed}` : currentProjectSeed));
+    toast.success("Added current Lovable project context.");
+  };
+
+  const importGitHubActivity = async () => {
+    const handle = githubHandle.trim().replace(/^@/, "");
+    const repo = githubRepo.trim();
+    if (!handle) {
+      toast.error("Add a GitHub username first.");
+      return;
+    }
+
+    setIsImportingSource(true);
+    try {
+      const [eventsResponse, reposResponse] = await Promise.all([
+        fetch(`https://api.github.com/users/${encodeURIComponent(handle)}/events/public?per_page=20`),
+        repo ? Promise.resolve(null) : fetch(`https://api.github.com/users/${encodeURIComponent(handle)}/repos?sort=updated&per_page=8`),
+      ]);
+
+      if (!eventsResponse.ok) throw new Error(eventsResponse.status === 404 ? "GitHub user not found." : "Could not read public GitHub activity.");
+      const events = await eventsResponse.json();
+      const repos = reposResponse && reposResponse.ok ? await reposResponse.json() : [];
+
+      let repoDetails = null;
+      if (repo) {
+        const repoResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(handle)}/${encodeURIComponent(repo)}`);
+        if (repoResponse.ok) repoDetails = await repoResponse.json();
+      }
+
+      const eventLines = events.slice(0, 10).map((event: any) => {
+        const commitMessages = event.payload?.commits?.slice(0, 3).map((commit: any) => commit.message).join(" | ");
+        const issueTitle = event.payload?.issue?.title || event.payload?.pull_request?.title;
+        return `- ${event.type.replace("Event", "")} in ${event.repo?.name || "unknown repo"}${issueTitle ? `: ${issueTitle}` : ""}${commitMessages ? `: ${commitMessages}` : ""}`;
+      });
+
+      const repoLines = repoDetails
+        ? [`Repo focus: ${repoDetails.full_name}`, `Description: ${repoDetails.description || "No description"}`, `Language: ${repoDetails.language || "unknown"}`, `Updated: ${repoDetails.updated_at}`]
+        : repos.slice(0, 6).map((item: any) => `- ${item.full_name}: ${item.description || "No description"} (${item.language || "unknown"})`);
+
+      const imported = `Source: public GitHub activity for @${handle}${repo ? ` / ${repo}` : ""}
+What this might reveal: build decisions, abandoned ideas, small fixes, commits that hint at what broke.
+
+${repo ? "Repository context" : "Recently updated repositories"}:
+${repoLines.join("\n") || "No public repositories found."}
+
+Recent public activity:
+${eventLines.join("\n") || "No recent public activity found."}
+
+Drafting instruction: turn this into rough notes first. Look for a specific change, failure, tradeoff, or workflow lesson. Do not make it sound like a polished launch update.`;
+
+      setNoteSource("github");
+      setNotes((current) => (current.trim() ? `${current.trim()}\n\n---\n\n${imported}` : imported));
+      toast.success("Imported public GitHub context.");
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "GitHub import failed.");
+    } finally {
+      setIsImportingSource(false);
+    }
+  };
+
   const generateDrafts = async (regenerateAngle?: DraftAngle) => {
     if (!user || notes.trim().length < 20) {
       toast.error("Add a few more real notes first.");
@@ -184,7 +259,7 @@ const Index = () => {
     const client = supabase as any;
     const { data: note, error: noteError } = await client
       .from("writing_notes")
-      .insert({ user_id: user.id, content: notes.trim(), raw_mode: rawMode })
+      .insert({ user_id: user.id, content: notes.trim(), raw_mode: rawMode, source: noteSource })
       .select("id")
       .single();
 
@@ -332,11 +407,28 @@ const Index = () => {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <h2 className="text-xl font-medium">Rough notes</h2>
-              <p className="text-sm text-muted-foreground">Paste directly from a Lovable project or your scratchpad.</p>
+              <p className="text-sm text-muted-foreground">Paste notes, pull this project context, or import public GitHub activity.</p>
             </div>
             <div className="flex items-center gap-3 rounded-lg border border-border bg-card px-3 py-2">
               <Label htmlFor="raw-mode" className="text-sm">Make it more raw</Label>
               <Switch id="raw-mode" checked={rawMode} onCheckedChange={setRawMode} />
+            </div>
+          </div>
+          <div className="grid gap-3 rounded-lg border border-border bg-card p-4 lg:grid-cols-[1fr_1.5fr]">
+            <div className="space-y-3">
+              <Label>Import source</Label>
+              <div className="grid grid-cols-3 gap-2">
+                <Button type="button" variant={noteSource === "manual" ? "secondary" : "outline"} onClick={() => setNoteSource("manual")}>Paste</Button>
+                <Button type="button" variant={noteSource === "lovable" ? "secondary" : "outline"} onClick={useCurrentLovableProject}>Lovable</Button>
+                <Button type="button" variant={noteSource === "github" ? "secondary" : "outline"} onClick={() => setNoteSource("github")}><Github /></Button>
+              </div>
+            </div>
+            <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+              <Input value={githubHandle} onChange={(event) => setGithubHandle(event.target.value)} placeholder="GitHub username" />
+              <Input value={githubRepo} onChange={(event) => setGithubRepo(event.target.value)} placeholder="Optional repo" />
+              <Button type="button" variant="outline" onClick={importGitHubActivity} disabled={isImportingSource}>
+                {isImportingSource ? <Loader2 className="animate-spin" /> : <Github />} Import
+              </Button>
             </div>
           </div>
           <Textarea
