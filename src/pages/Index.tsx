@@ -103,7 +103,7 @@ const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).len
 type WebinarCardProps = {
   webinar: Webinar;
   isGenerating: boolean;
-  onGenerate: () => void;
+  onGenerate: (contextOverride?: string) => void;
   onDelete: () => void;
   onCopy: (text: string) => void;
   onSaveFinal: (text: string) => void;
@@ -112,7 +112,9 @@ type WebinarCardProps = {
 const WebinarCard = ({ webinar: w, isGenerating, onGenerate, onDelete, onCopy, onSaveFinal }: WebinarCardProps) => {
   const [finalDraft, setFinalDraft] = useState(w.final_version ?? "");
   const [showFinal, setShowFinal] = useState(Boolean(w.final_version));
+  const [contextDraft, setContextDraft] = useState(w.context ?? "");
   useEffect(() => { setFinalDraft(w.final_version ?? ""); }, [w.final_version]);
+  useEffect(() => { setContextDraft(w.context ?? ""); }, [w.context]);
   const dirty = (finalDraft.trim() || null) !== (w.final_version ?? null);
 
   return (
@@ -137,10 +139,25 @@ const WebinarCard = ({ webinar: w, isGenerating, onGenerate, onDelete, onCopy, o
             <p className="whitespace-pre-line text-sm leading-6">{w.generated_post}</p>
           </div>
         ) : null}
+
+        {w.generated_post ? (
+          <div className="space-y-2 rounded-md border border-border bg-card/40 p-3">
+            <Label className="text-xs text-muted-foreground">
+              Iterate on this post — your instructions tweak the generated post above (not the raw notes).
+            </Label>
+            <Textarea
+              value={contextDraft}
+              onChange={(e) => setContextDraft(e.target.value)}
+              placeholder="e.g. make it shorter, lead with the contrarian take, drop the second paragraph, sound more skeptical..."
+              className="min-h-[70px] resize-y text-sm leading-6"
+            />
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" size="sm" onClick={onGenerate} disabled={isGenerating}>
+          <Button variant="secondary" size="sm" onClick={() => onGenerate(contextDraft)} disabled={isGenerating}>
             {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
-            {w.generated_post ? "Regenerate" : "Generate post"}
+            {w.generated_post ? "Regenerate with tweaks" : "Generate post"}
           </Button>
           <Button variant="outline" size="sm" onClick={() => onCopy(w.generated_post || w.notes)} disabled={!w.generated_post}>
             <Clipboard /> Copy
@@ -457,18 +474,29 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
     else setScheduled((current) => current.map((item) => (item.id === post.id ? { ...item, status: "snoozed", scheduled_for: next } : item)));
   };
 
+  const deriveWebinarTitle = (explicit: string, context: string, notes: string) => {
+    const fromExplicit = explicit.trim();
+    if (fromExplicit) return fromExplicit.slice(0, 200);
+    const source = (context.trim() || notes.trim()).replace(/\s+/g, " ");
+    if (!source) return "Untitled webinar";
+    const firstSentence = source.split(/(?<=[.!?])\s/)[0] ?? source;
+    const cleaned = firstSentence.replace(/^["'`*#-]+\s*/, "").trim();
+    return (cleaned.length > 80 ? cleaned.slice(0, 77).trimEnd() + "…" : cleaned) || "Untitled webinar";
+  };
+
   const addWebinar = async () => {
-    if (!user || !webinarTitle.trim() || webinarNotes.trim().length < 20) {
-      toast.error("Add a title and at least a few lines of notes.");
+    if (!user || webinarNotes.trim().length < 20) {
+      toast.error("Add at least a few lines of notes.");
       return;
     }
+    const derivedTitle = deriveWebinarTitle(webinarTitle, webinarContext, webinarNotes);
     setSavingWebinar(true);
     const client = supabase as any;
     const { data, error } = await client
       .from("webinars")
       .insert({
         user_id: user.id,
-        title: webinarTitle.trim(),
+        title: derivedTitle,
         presenter: webinarPresenter.trim() || null,
         notes: webinarNotes.trim(),
         context: webinarContext.trim() || null,
@@ -483,15 +511,30 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
     toast.success("Webinar saved.");
   };
 
-  const generateWebinarPost = async (webinar: Webinar) => {
+  const generateWebinarPost = async (webinar: Webinar, contextOverride?: string) => {
     setGeneratingWebinarId(webinar.id);
+    const effectiveContext = (contextOverride ?? webinar.context ?? "").trim();
+    const iterating = Boolean(webinar.generated_post);
     const { data, error } = await supabase.functions.invoke("generate-webinar-post", {
-      body: { mode: "post", webinarId: webinar.id, title: webinar.title, presenter: webinar.presenter, notes: webinar.notes, context: webinar.context },
+      body: {
+        mode: "post",
+        webinarId: webinar.id,
+        title: webinar.title,
+        presenter: webinar.presenter,
+        notes: webinar.notes,
+        context: effectiveContext || null,
+        previousPost: iterating ? webinar.generated_post : null,
+      },
     });
     setGeneratingWebinarId(null);
     if (error || data?.error) { toast.error(data?.error || error?.message || "Generation failed."); return; }
-    setWebinars((c) => c.map((w) => w.id === webinar.id ? { ...w, generated_post: data.post } : w));
-    toast.success("Authentic post generated.");
+    // Persist the latest context the user iterated with
+    if (effectiveContext !== (webinar.context ?? "")) {
+      const client = supabase as any;
+      await client.from("webinars").update({ context: effectiveContext || null }).eq("id", webinar.id);
+    }
+    setWebinars((c) => c.map((w) => w.id === webinar.id ? { ...w, generated_post: data.post, context: effectiveContext || null } : w));
+    toast.success(iterating ? "Post updated with your tweaks." : "Authentic post generated.");
   };
 
   const deleteWebinar = async (id: string) => {
@@ -821,7 +864,7 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
           </div>
 
           <div className="grid gap-3 sm:grid-cols-[1fr_1fr_180px]">
-            <Input value={webinarTitle} onChange={(e) => setWebinarTitle(e.target.value)} placeholder="Webinar title" />
+            <Input value={webinarTitle} onChange={(e) => setWebinarTitle(e.target.value)} placeholder="Webinar title (optional — auto-derived from notes)" />
             <Input value={webinarPresenter} onChange={(e) => setWebinarPresenter(e.target.value)} placeholder="Presenter (optional)" />
             <Input type="date" value={webinarWatchedAt} onChange={(e) => setWebinarWatchedAt(e.target.value)} />
           </div>
@@ -885,7 +928,7 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
                 key={w.id}
                 webinar={w}
                 isGenerating={generatingWebinarId === w.id}
-                onGenerate={() => generateWebinarPost(w)}
+                onGenerate={(ctx) => generateWebinarPost(w, ctx)}
                 onDelete={() => deleteWebinar(w.id)}
                 onCopy={(t) => copyText(t)}
                 onSaveFinal={(text) => saveFinalVersion(w.id, text)}
