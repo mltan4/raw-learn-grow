@@ -828,7 +828,36 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
             placeholder="Your notes from the webinar — quotes, hot takes, things you disagreed with, what you'd actually use..."
             className="min-h-[140px] resize-y rounded-lg bg-card/80 text-sm leading-6"
           />
-          <div className="flex justify-end">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
+              <FileText className="h-4 w-4" />
+              <span>Attach a text file (.txt, .md)</span>
+              <input
+                type="file"
+                accept=".txt,.md,.markdown,text/plain,text/markdown"
+                multiple
+                className="hidden"
+                onChange={async (e) => {
+                  const files = Array.from(e.target.files ?? []);
+                  if (!files.length) return;
+                  const MAX = 1_000_000;
+                  const chunks: string[] = [];
+                  for (const file of files) {
+                    if (file.size > MAX) { toast.error(`${file.name} is too large (max 1MB).`); continue; }
+                    if (!/\.(txt|md|markdown)$/i.test(file.name) && !file.type.startsWith("text/")) {
+                      toast.error(`${file.name} isn't a text file.`); continue;
+                    }
+                    const text = await file.text();
+                    chunks.push(`--- ${file.name} ---\n${text.trim()}`);
+                  }
+                  if (chunks.length) {
+                    setWebinarNotes((current) => (current.trim() ? `${current.trim()}\n\n${chunks.join("\n\n")}` : chunks.join("\n\n")));
+                    toast.success(`Attached ${chunks.length} file${chunks.length > 1 ? "s" : ""}.`);
+                  }
+                  e.target.value = "";
+                }}
+              />
+            </label>
             <Button onClick={addWebinar} disabled={savingWebinar}>
               {savingWebinar ? <Loader2 className="animate-spin" /> : <PenLine />} Save webinar
             </Button>
