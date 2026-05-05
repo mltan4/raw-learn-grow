@@ -382,6 +382,57 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
     else setScheduled((current) => current.map((item) => (item.id === post.id ? { ...item, status: "snoozed", scheduled_for: next } : item)));
   };
 
+  const addWebinar = async () => {
+    if (!user || !webinarTitle.trim() || webinarNotes.trim().length < 20) {
+      toast.error("Add a title and at least a few lines of notes.");
+      return;
+    }
+    setSavingWebinar(true);
+    const client = supabase as any;
+    const { data, error } = await client
+      .from("webinars")
+      .insert({
+        user_id: user.id,
+        title: webinarTitle.trim(),
+        presenter: webinarPresenter.trim() || null,
+        notes: webinarNotes.trim(),
+        watched_at: webinarWatchedAt,
+      })
+      .select("*")
+      .single();
+    setSavingWebinar(false);
+    if (error) { toast.error(error.message); return; }
+    setWebinars((c) => [data, ...c]);
+    setWebinarTitle(""); setWebinarPresenter(""); setWebinarNotes("");
+    toast.success("Webinar saved.");
+  };
+
+  const generateWebinarPost = async (webinar: Webinar) => {
+    setGeneratingWebinarId(webinar.id);
+    const { data, error } = await supabase.functions.invoke("generate-webinar-post", {
+      body: { mode: "post", webinarId: webinar.id, title: webinar.title, presenter: webinar.presenter, notes: webinar.notes },
+    });
+    setGeneratingWebinarId(null);
+    if (error || data?.error) { toast.error(data?.error || error?.message || "Generation failed."); return; }
+    setWebinars((c) => c.map((w) => w.id === webinar.id ? { ...w, generated_post: data.post } : w));
+    toast.success("Authentic post generated.");
+  };
+
+  const deleteWebinar = async (id: string) => {
+    const client = supabase as any;
+    const { error } = await client.from("webinars").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setWebinars((c) => c.filter((w) => w.id !== id));
+  };
+
+  const generateRollup = async () => {
+    setIsRollingUp(true);
+    const { data, error } = await supabase.functions.invoke("generate-webinar-post", { body: { mode: "rollup" } });
+    setIsRollingUp(false);
+    if (error || data?.error) { toast.error(data?.error || error?.message || "Roll-up failed."); return; }
+    setRollupSummary(data.summary || "");
+  };
+
   const filteredDrafts = drafts.filter((draft) => tagFilter === "all" || draft.tags.includes(tagFilter));
   const upcomingPosts = scheduled.filter((post) => post.status !== "posted");
   const postedPosts = scheduled.filter((post) => post.status === "posted");
