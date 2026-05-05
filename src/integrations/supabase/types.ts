@@ -210,6 +210,45 @@ export type Database = {
           },
         ]
       }
+      webinars: {
+        Row: {
+          created_at: string
+          generated_post: string | null
+          id: string
+          notes: string
+          presenter: string | null
+          tags: string[]
+          title: string
+          updated_at: string
+          user_id: string
+          watched_at: string
+        }
+        Insert: {
+          created_at?: string
+          generated_post?: string | null
+          id?: string
+          notes: string
+          presenter?: string | null
+          tags?: string[]
+          title: string
+          updated_at?: string
+          user_id: string
+          watched_at?: string
+        }
+        Update: {
+          created_at?: string
+          generated_post?: string | null
+          id?: string
+          notes?: string
+          presenter?: string | null
+          tags?: string[]
+          title?: string
+          updated_at?: string
+          user_id?: string
+          watched_at?: string
+        }
+        Relationships: []
+      }
       writing_notes: {
         Row: {
           content: string
