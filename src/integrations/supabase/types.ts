@@ -212,6 +212,7 @@ export type Database = {
       }
       webinars: {
         Row: {
+          context: string | null
           created_at: string
           final_version: string | null
           generated_post: string | null
@@ -225,6 +226,7 @@ export type Database = {
           watched_at: string
         }
         Insert: {
+          context?: string | null
           created_at?: string
           final_version?: string | null
           generated_post?: string | null
@@ -238,6 +240,7 @@ export type Database = {
           watched_at?: string
         }
         Update: {
+          context?: string | null
           created_at?: string
           final_version?: string | null
           generated_post?: string | null
