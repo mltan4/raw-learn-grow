@@ -1,20 +1,21 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { format } from "date-fns";
 import {
-  Archive,
-  CalendarClock,
   Check,
+  CheckCircle2,
   Clipboard,
+  FileText,
   Github,
+  Link2,
+  Link2Off,
   Loader2,
   LogOut,
-  Mail,
   PenLine,
-  RefreshCw,
   Sparkles,
-  Video,
-  FileText,
   Trash2,
+  Type,
+  Video,
+  Wand2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { lovable } from "@/integrations/lovable";
@@ -24,44 +25,21 @@ import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Switch } from "@/components/ui/switch";
 import { Textarea } from "@/components/ui/textarea";
 
-type DraftAngle = "insight" | "story" | "tactical";
-type Draft = {
-  id: string;
-  note_id: string | null;
-  angle: DraftAngle;
-  title: string;
-  content: string;
-  word_count: number;
-  tags: string[];
-  quality_flags: string[];
-  is_selected: boolean;
-  created_at: string;
-};
-type ScheduledPost = {
-  id: string;
-  draft_id: string | null;
-  scheduled_for: string;
-  timezone: string;
-  status: "scheduled" | "reminded" | "snoozed" | "posted";
-  copy_snapshot: string;
-  tags: string[];
-  reminder_sent_at: string | null;
-  follow_up_sent_at: string | null;
-  created_at: string;
-};
+type SourceKey = "text" | "lovable" | "github" | "transcript";
+
 type Profile = {
   timezone: string;
   default_reminder_time: string;
   raw_mode_default: boolean;
   email: string | null;
+  github_handle: string | null;
+  github_repo: string | null;
 };
 
-type NoteSource = "manual" | "lovable" | "github";
-type Webinar = {
+type Draft = {
   id: string;
   title: string;
   presenter: string | null;
@@ -70,119 +48,147 @@ type Webinar = {
   generated_post: string | null;
   final_version: string | null;
   context: string | null;
+  source: SourceKey;
+  topic: string | null;
   tags: string[];
   created_at: string;
+  updated_at?: string;
 };
 
-const angleLabels: Record<DraftAngle, string> = {
-  insight: "Insight-first",
-  story: "Story / what happened",
-  tactical: "Tactical / how-to",
+const sourceMeta: Record<SourceKey, { label: string; icon: any; hint: string }> = {
+  text: { label: "Open text", icon: Type, hint: "Paste anything — rough notes, ideas, half-thoughts." },
+  lovable: { label: "Lovable", icon: Sparkles, hint: "Pull context from your current Lovable build." },
+  github: { label: "GitHub", icon: Github, hint: "Pull recent public activity from your linked GitHub." },
+  transcript: { label: "Transcript", icon: Video, hint: "Upload a transcript file (.txt, .md, .vtt, .srt)." },
 };
-
-const tagOptions = ["experiments", "failures", "observations", "half-baked ideas", "prompting", "workflows", "mistakes", "tools"];
 
 const currentProjectSeed = `Source: current Lovable writing-studio project
-Goal: build a private app that turns rough Lovable project notes, prompts, failures, observations, and half-baked ideas into honest draft posts.
-What changed: the app now has auth, rough notes, raw mode, AI-generated angles, scheduling, queue, archive, tags, and preference signals.
-Useful tension: the first version is functional, but the real value depends on importing messier source material from actual builds instead of writing polished notes after the fact.
-Potential post angle: how the source material matters more than the final AI prompt. If the notes hide the failure, the generated post becomes generic.`;
+Goal: turn rough Lovable project notes, prompts, failures, observations, and half-baked ideas into honest draft posts.
+What changed: the app now has a unified 4-source ingestion flow, persistent GitHub connection, and one draft per topic.
+Useful tension: the value depends on importing messier source material from actual builds instead of writing polished notes after the fact.`;
 
-const nextPostingDate = (day: "monday" | "wednesday" | "thursday", time: string) => {
-  const target = { monday: 1, wednesday: 3, thursday: 4 }[day];
-  const date = new Date();
-  const delta = (target - date.getDay() + 7) % 7 || 7;
-  date.setDate(date.getDate() + delta);
-  const [hours, minutes] = time.split(":").map(Number);
-  date.setHours(hours || 9, minutes || 0, 0, 0);
-  return date;
+const deriveTopicFromText = (text: string, fallback = "Untitled draft") => {
+  const source = text.trim().replace(/\s+/g, " ");
+  if (!source) return fallback;
+  const firstSentence = source.split(/(?<=[.!?])\s/)[0] ?? source;
+  const cleaned = firstSentence.replace(/^["'`*#-]+\s*/, "").trim();
+  return cleaned.length > 80 ? cleaned.slice(0, 77).trimEnd() + "…" : cleaned || fallback;
 };
 
-const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
+const stripTranscriptFormatting = (raw: string) => {
+  // Strip VTT/SRT timestamps and indices, keep speaker text
+  return raw
+    .replace(/^WEBVTT.*$/gim, "")
+    .replace(/^\d+\s*$/gm, "")
+    .replace(/\d{2}:\d{2}:\d{2}[.,]\d{3}\s*-->\s*\d{2}:\d{2}:\d{2}[.,]\d{3}.*$/gm, "")
+    .replace(/\n{3,}/g, "\n\n")
+    .trim();
+};
 
-type WebinarCardProps = {
-  webinar: Webinar;
+type DraftCardProps = {
+  draft: Draft;
   isGenerating: boolean;
-  onGenerate: (contextOverride?: string) => void;
+  onGenerate: (instructions: string, editedPost: string) => void;
+  onConfirmFinal: (finalText: string) => void;
   onDelete: () => void;
   onCopy: (text: string) => void;
-  onSaveFinal: (text: string) => void;
 };
 
-const WebinarCard = ({ webinar: w, isGenerating, onGenerate, onDelete, onCopy, onSaveFinal }: WebinarCardProps) => {
-  const [finalDraft, setFinalDraft] = useState(w.final_version ?? "");
-  const [showFinal, setShowFinal] = useState(Boolean(w.final_version));
-  const [contextDraft, setContextDraft] = useState(w.context ?? "");
-  useEffect(() => { setFinalDraft(w.final_version ?? ""); }, [w.final_version]);
-  useEffect(() => { setContextDraft(w.context ?? ""); }, [w.context]);
-  const dirty = (finalDraft.trim() || null) !== (w.final_version ?? null);
+const DraftCard = ({ draft, isGenerating, onGenerate, onConfirmFinal, onDelete, onCopy }: DraftCardProps) => {
+  const [postDraft, setPostDraft] = useState(draft.generated_post ?? "");
+  const [comments, setComments] = useState("");
+  const [finalDraft, setFinalDraft] = useState(draft.final_version ?? "");
+  const [showFinalEditor, setShowFinalEditor] = useState(false);
+
+  useEffect(() => { setPostDraft(draft.generated_post ?? ""); }, [draft.generated_post]);
+  useEffect(() => { setFinalDraft(draft.final_version ?? ""); }, [draft.final_version]);
+
+  const SourceIcon = sourceMeta[draft.source]?.icon ?? Type;
+  const isFinalSameAsPost = finalDraft.trim() === (postDraft.trim() || draft.generated_post?.trim() || "");
 
   return (
     <Card className="glass-tile rounded-lg shadow-none">
       <CardHeader className="space-y-2 p-4">
         <div className="flex items-start justify-between gap-2">
-          <div>
-            <CardTitle className="text-base leading-5">{w.title}</CardTitle>
-            <p className="mt-1 text-xs text-muted-foreground">
-              {w.presenter ? `${w.presenter} • ` : ""}{format(new Date(w.watched_at), "MMM d, yyyy")}
-              {w.final_version ? <span className="ml-2 text-primary">• voice sample saved</span> : null}
-            </p>
+          <div className="space-y-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge variant="outline" className="gap-1"><SourceIcon className="h-3 w-3" />{sourceMeta[draft.source]?.label ?? draft.source}</Badge>
+              {draft.final_version ? <Badge className="gap-1"><CheckCircle2 className="h-3 w-3" /> Final saved</Badge> : null}
+            </div>
+            <CardTitle className="text-base leading-5">{draft.topic || draft.title}</CardTitle>
+            <p className="text-xs text-muted-foreground">{format(new Date(draft.created_at), "MMM d, yyyy")}</p>
           </div>
-          <Button variant="ghost" size="icon" onClick={onDelete}><Trash2 /></Button>
+          <Button variant="ghost" size="icon" onClick={onDelete} aria-label="Delete draft"><Trash2 /></Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-3 p-4 pt-0">
-        <p className="line-clamp-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">{w.notes}</p>
-        {w.generated_post ? (
-          <div className="rounded-md border border-border bg-card/60 p-3">
-            <p className="mb-2 text-xs font-medium text-muted-foreground">Authentic post</p>
-            <p className="whitespace-pre-line text-sm leading-6">{w.generated_post}</p>
-          </div>
-        ) : null}
-
-        {w.generated_post ? (
-          <div className="space-y-2 rounded-md border border-border bg-card/40 p-3">
-            <Label className="text-xs text-muted-foreground">
-              Iterate on this post — your instructions tweak the generated post above (not the raw notes).
-            </Label>
-            <Textarea
-              value={contextDraft}
-              onChange={(e) => setContextDraft(e.target.value)}
-              placeholder="e.g. make it shorter, lead with the contrarian take, drop the second paragraph, sound more skeptical..."
-              className="min-h-[70px] resize-y text-sm leading-6"
-            />
-          </div>
-        ) : null}
-
-        <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" size="sm" onClick={() => onGenerate(contextDraft)} disabled={isGenerating}>
-            {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
-            {w.generated_post ? "Regenerate with tweaks" : "Generate post"}
-          </Button>
-          <Button variant="outline" size="sm" onClick={() => onCopy(w.generated_post || w.notes)} disabled={!w.generated_post}>
-            <Clipboard /> Copy
-          </Button>
-        </div>
-
-        {showFinal || w.final_version ? (
-          <div className="space-y-2 rounded-md border border-dashed border-border bg-card/40 p-3">
-            <Label className="text-xs text-muted-foreground">My final version (what I actually posted)</Label>
-            <Textarea
-              value={finalDraft}
-              onChange={(e) => setFinalDraft(e.target.value)}
-              placeholder="Paste the version you actually posted. The tool learns your voice from these."
-              className="min-h-[100px] resize-y text-sm leading-6"
-            />
-            <div className="flex justify-end">
-              <Button size="sm" variant={dirty ? "default" : "outline"} onClick={() => onSaveFinal(finalDraft)} disabled={!dirty}>
-                <Check /> Save voice sample
+        {draft.generated_post ? (
+          <>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Draft (edit inline before regenerating)</Label>
+              <Textarea
+                value={postDraft}
+                onChange={(e) => setPostDraft(e.target.value)}
+                className="min-h-[140px] resize-y text-sm leading-6"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="text-xs text-muted-foreground">Comments / tweaks for the next pass</Label>
+              <Textarea
+                value={comments}
+                onChange={(e) => setComments(e.target.value)}
+                placeholder="e.g. shorter, lead with the contrarian take, drop the second paragraph..."
+                className="min-h-[60px] resize-y text-sm leading-6"
+              />
+            </div>
+            <div className="grid grid-cols-2 gap-2">
+              <Button variant="secondary" size="sm" onClick={() => onGenerate(comments, postDraft)} disabled={isGenerating}>
+                {isGenerating ? <Loader2 className="animate-spin" /> : <Wand2 />} Regenerate with tweaks
+              </Button>
+              <Button variant="outline" size="sm" onClick={() => onCopy(postDraft || draft.generated_post || "")}>
+                <Clipboard /> Copy
               </Button>
             </div>
-          </div>
+
+            <div className="space-y-2 rounded-md border border-dashed border-border bg-card/40 p-3">
+              <div className="flex items-center justify-between">
+                <Label className="text-xs text-muted-foreground">Final version</Label>
+                {!showFinalEditor && !draft.final_version ? (
+                  <Button size="sm" variant="ghost" onClick={() => { setFinalDraft(postDraft); setShowFinalEditor(true); }}>
+                    <PenLine className="mr-1" /> Save my final modification
+                  </Button>
+                ) : null}
+              </div>
+              {showFinalEditor || draft.final_version ? (
+                <>
+                  <Textarea
+                    value={finalDraft}
+                    onChange={(e) => setFinalDraft(e.target.value)}
+                    placeholder="Paste or edit the version you actually want to keep. The tool learns your voice from these."
+                    className="min-h-[100px] resize-y text-sm leading-6"
+                  />
+                  <div className="flex flex-wrap justify-end gap-2">
+                    <Button size="sm" variant="outline" onClick={() => { setFinalDraft(postDraft); onConfirmFinal(postDraft); }}>
+                      <Check /> Agree with current draft
+                    </Button>
+                    <Button size="sm" onClick={() => onConfirmFinal(finalDraft)} disabled={!finalDraft.trim()}>
+                      <CheckCircle2 /> {draft.final_version ? "Update final" : "Save final"}
+                    </Button>
+                  </div>
+                  {draft.final_version && !isFinalSameAsPost ? (
+                    <p className="text-xs text-muted-foreground">Your final differs from the current draft — that's the version saved as a voice sample.</p>
+                  ) : null}
+                </>
+              ) : null}
+            </div>
+          </>
         ) : (
-          <Button variant="ghost" size="sm" onClick={() => setShowFinal(true)} className="w-full justify-start text-muted-foreground">
-            <PenLine /> Add my final version
-          </Button>
+          <div className="space-y-3">
+            <p className="line-clamp-4 whitespace-pre-line text-sm leading-6 text-muted-foreground">{draft.notes}</p>
+            <Button size="sm" variant="secondary" onClick={() => onGenerate("", "")} disabled={isGenerating} className="w-full">
+              {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />} Generate draft
+            </Button>
+          </div>
         )}
       </CardContent>
     </Card>
@@ -199,39 +205,27 @@ const Index = () => {
     default_reminder_time: "09:00",
     raw_mode_default: false,
     email: null,
+    github_handle: null,
+    github_repo: null,
   });
+
+  // Unified ingestion state
+  const [activeSource, setActiveSource] = useState<SourceKey>("text");
+  const [topic, setTopic] = useState("");
   const [notes, setNotes] = useState("");
-  const [noteSource, setNoteSource] = useState<NoteSource>("manual");
+  const [context, setContext] = useState("");
   const [rawMode, setRawMode] = useState(false);
+  const [isCreating, setIsCreating] = useState(false);
+
+  // GitHub connection
+  const [githubHandleInput, setGithubHandleInput] = useState("");
+  const [githubRepoInput, setGithubRepoInput] = useState("");
+  const [isLinkingGithub, setIsLinkingGithub] = useState(false);
+  const [isPullingGithub, setIsPullingGithub] = useState(false);
+
+  // Drafts (stored in webinars table — unified store, one per topic)
   const [drafts, setDrafts] = useState<Draft[]>([]);
-  const [scheduled, setScheduled] = useState<ScheduledPost[]>([]);
-  const [selectedDraftId, setSelectedDraftId] = useState<string | null>(null);
-  const [scheduleDay, setScheduleDay] = useState<"monday" | "wednesday" | "thursday">("monday");
-  const [scheduleTime, setScheduleTime] = useState("09:00");
-  const [tagFilter, setTagFilter] = useState("all");
-  const [isGenerating, setIsGenerating] = useState(false);
-  const [githubHandle, setGithubHandle] = useState("");
-  const [githubRepo, setGithubRepo] = useState("");
-  const [isImportingSource, setIsImportingSource] = useState(false);
-
-  // Webinars
-  const [webinars, setWebinars] = useState<Webinar[]>([]);
-  const [webinarTitle, setWebinarTitle] = useState("");
-  const [webinarPresenter, setWebinarPresenter] = useState("");
-  const [webinarNotes, setWebinarNotes] = useState("");
-  const [webinarContext, setWebinarContext] = useState("");
-  const [webinarWatchedAt, setWebinarWatchedAt] = useState(new Date().toISOString().slice(0, 10));
-  const [generatingWebinarId, setGeneratingWebinarId] = useState<string | null>(null);
-  const [savingWebinar, setSavingWebinar] = useState(false);
-  const [rollupSummary, setRollupSummary] = useState<string>("");
-  const [isRollingUp, setIsRollingUp] = useState(false);
-
-  const selectedDraft = drafts.find((draft) => draft.id === selectedDraftId) ?? null;
-
-  const selectedPatterns = useMemo(() => {
-    const selected = drafts.filter((draft) => draft.is_selected).slice(0, 6);
-    return selected.map((draft) => `${angleLabels[draft.angle]} selected: ${draft.title}`);
-  }, [drafts]);
+  const [generatingId, setGeneratingId] = useState<string | null>(null);
 
   useEffect(() => {
     supabase.auth.getSession().then(({ data }) => setUser(data.session?.user ?? null));
@@ -252,28 +246,27 @@ const Index = () => {
       timezone: Intl.DateTimeFormat().resolvedOptions().timeZone || "UTC",
       default_reminder_time: "09:00",
       raw_mode_default: false,
+      github_handle: null,
+      github_repo: null,
     };
-
     const { data: profileRow } = await client.from("profiles").select("*").eq("user_id", currentUser.id).maybeSingle();
     if (!profileRow) {
       await client.from("profiles").insert(defaultProfile);
-      setProfile(defaultProfile);
-      setScheduleTime(defaultProfile.default_reminder_time);
-      setRawMode(defaultProfile.raw_mode_default);
+      setProfile(defaultProfile as any);
     } else {
       setProfile(profileRow);
-      setScheduleTime(profileRow.default_reminder_time?.slice(0, 5) || "09:00");
       setRawMode(profileRow.raw_mode_default ?? false);
+      setGithubHandleInput(profileRow.github_handle ?? "");
+      setGithubRepoInput(profileRow.github_repo ?? "");
     }
 
-    const [{ data: draftRows }, { data: queueRows }, { data: webinarRows }] = await Promise.all([
-      client.from("post_drafts").select("*").eq("user_id", currentUser.id).order("created_at", { ascending: false }).limit(30),
-      client.from("scheduled_posts").select("*").eq("user_id", currentUser.id).order("scheduled_for", { ascending: true }).limit(30),
-      client.from("webinars").select("*").eq("user_id", currentUser.id).order("watched_at", { ascending: false }).limit(50),
-    ]);
-    setDrafts(draftRows ?? []);
-    setScheduled(queueRows ?? []);
-    setWebinars(webinarRows ?? []);
+    const { data: draftRows } = await client
+      .from("webinars")
+      .select("*")
+      .eq("user_id", currentUser.id)
+      .order("created_at", { ascending: false })
+      .limit(80);
+    setDrafts((draftRows ?? []) as Draft[]);
   };
 
   const signIn = async (mode: "signin" | "signup") => {
@@ -294,276 +287,183 @@ const Index = () => {
     if (result.error) toast.error(result.error.message);
   };
 
-  const saveSettings = async () => {
+  // ---- GitHub connection (persistent) ----
+  const linkGithub = async () => {
     if (!user) return;
-    const client = supabase as any;
-    const nextProfile = { ...profile, default_reminder_time: scheduleTime, raw_mode_default: rawMode };
-    const { error } = await client.from("profiles").update(nextProfile).eq("user_id", user.id);
-    if (error) toast.error(error.message);
-    else {
-      setProfile(nextProfile);
-      toast.success("Settings saved.");
-    }
-  };
-
-  const useCurrentLovableProject = () => {
-    setNoteSource("lovable");
-    setNotes((current) => (current.trim() ? `${current.trim()}\n\n---\n\n${currentProjectSeed}` : currentProjectSeed));
-    toast.success("Added current Lovable project context.");
-  };
-
-  const importGitHubActivity = async () => {
-    const handle = githubHandle.trim().replace(/^@/, "");
-    const repo = githubRepo.trim();
-    if (!handle) {
-      toast.error("Add a GitHub username first.");
+    const handle = githubHandleInput.trim().replace(/^@/, "");
+    if (!handle) { toast.error("Add a GitHub username."); return; }
+    setIsLinkingGithub(true);
+    // Verify the user exists publicly
+    try {
+      const res = await fetch(`https://api.github.com/users/${encodeURIComponent(handle)}`);
+      if (!res.ok) throw new Error(res.status === 404 ? "GitHub user not found." : "Could not reach GitHub.");
+    } catch (e) {
+      setIsLinkingGithub(false);
+      toast.error(e instanceof Error ? e.message : "GitHub check failed.");
       return;
     }
+    const client = supabase as any;
+    const repo = githubRepoInput.trim() || null;
+    const { error } = await client.from("profiles").update({ github_handle: handle, github_repo: repo }).eq("user_id", user.id);
+    setIsLinkingGithub(false);
+    if (error) { toast.error(error.message); return; }
+    setProfile((p) => ({ ...p, github_handle: handle, github_repo: repo }));
+    toast.success(`Linked @${handle}.`);
+  };
 
-    setIsImportingSource(true);
+  const unlinkGithub = async () => {
+    if (!user) return;
+    const client = supabase as any;
+    const { error } = await client.from("profiles").update({ github_handle: null, github_repo: null }).eq("user_id", user.id);
+    if (error) { toast.error(error.message); return; }
+    setProfile((p) => ({ ...p, github_handle: null, github_repo: null }));
+    setGithubHandleInput(""); setGithubRepoInput("");
+    toast.success("GitHub unlinked.");
+  };
+
+  const pullGithubActivity = async () => {
+    const handle = profile.github_handle;
+    if (!handle) { toast.error("Link your GitHub first."); return; }
+    const repo = profile.github_repo;
+    setIsPullingGithub(true);
     try {
-      const [eventsResponse, reposResponse] = await Promise.all([
+      const [eventsRes, reposRes] = await Promise.all([
         fetch(`https://api.github.com/users/${encodeURIComponent(handle)}/events/public?per_page=20`),
         repo ? Promise.resolve(null) : fetch(`https://api.github.com/users/${encodeURIComponent(handle)}/repos?sort=updated&per_page=8`),
       ]);
+      if (!eventsRes.ok) throw new Error("Could not read GitHub activity.");
+      const events = await eventsRes.json();
+      const repos = reposRes && reposRes.ok ? await reposRes.json() : [];
 
-      if (!eventsResponse.ok) throw new Error(eventsResponse.status === 404 ? "GitHub user not found." : "Could not read public GitHub activity.");
-      const events = await eventsResponse.json();
-      const repos = reposResponse && reposResponse.ok ? await reposResponse.json() : [];
-
-      let repoDetails = null;
+      let repoDetails: any = null;
       if (repo) {
-        const repoResponse = await fetch(`https://api.github.com/repos/${encodeURIComponent(handle)}/${encodeURIComponent(repo)}`);
-        if (repoResponse.ok) repoDetails = await repoResponse.json();
+        const r = await fetch(`https://api.github.com/repos/${encodeURIComponent(handle)}/${encodeURIComponent(repo)}`);
+        if (r.ok) repoDetails = await r.json();
       }
-
       const eventLines = events.slice(0, 10).map((event: any) => {
-        const commitMessages = event.payload?.commits?.slice(0, 3).map((commit: any) => commit.message).join(" | ");
+        const commitMessages = event.payload?.commits?.slice(0, 3).map((c: any) => c.message).join(" | ");
         const issueTitle = event.payload?.issue?.title || event.payload?.pull_request?.title;
-        return `- ${event.type.replace("Event", "")} in ${event.repo?.name || "unknown repo"}${issueTitle ? `: ${issueTitle}` : ""}${commitMessages ? `: ${commitMessages}` : ""}`;
+        return `- ${event.type.replace("Event", "")} in ${event.repo?.name || "unknown"}${issueTitle ? `: ${issueTitle}` : ""}${commitMessages ? `: ${commitMessages}` : ""}`;
       });
-
       const repoLines = repoDetails
-        ? [`Repo focus: ${repoDetails.full_name}`, `Description: ${repoDetails.description || "No description"}`, `Language: ${repoDetails.language || "unknown"}`, `Updated: ${repoDetails.updated_at}`]
-        : repos.slice(0, 6).map((item: any) => `- ${item.full_name}: ${item.description || "No description"} (${item.language || "unknown"})`);
-
-      const imported = `Source: public GitHub activity for @${handle}${repo ? ` / ${repo}` : ""}
-What this might reveal: build decisions, abandoned ideas, small fixes, commits that hint at what broke.
-
-${repo ? "Repository context" : "Recently updated repositories"}:
-${repoLines.join("\n") || "No public repositories found."}
-
-Recent public activity:
-${eventLines.join("\n") || "No recent public activity found."}
-
-Drafting instruction: turn this into rough notes first. Look for a specific change, failure, tradeoff, or workflow lesson. Do not make it sound like a polished launch update.`;
-
-      setNoteSource("github");
-      setNotes((current) => (current.trim() ? `${current.trim()}\n\n---\n\n${imported}` : imported));
-      toast.success("Imported public GitHub context.");
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : "GitHub import failed.");
+        ? [`Repo: ${repoDetails.full_name} — ${repoDetails.description || "No description"} (${repoDetails.language || "unknown"})`]
+        : repos.slice(0, 6).map((r: any) => `- ${r.full_name}: ${r.description || "No description"} (${r.language || "unknown"})`);
+      const text = `Source: GitHub @${handle}${repo ? ` / ${repo}` : ""}\n\n${repo ? "Repo" : "Recent repos"}:\n${repoLines.join("\n") || "—"}\n\nRecent activity:\n${eventLines.join("\n") || "No recent public activity."}`;
+      setNotes((current) => current.trim() ? `${current.trim()}\n\n---\n\n${text}` : text);
+      if (!topic.trim()) setTopic(repo ? `${repo} — recent build` : `@${handle} — recent activity`);
+      toast.success("GitHub context pulled.");
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "GitHub pull failed.");
     } finally {
-      setIsImportingSource(false);
+      setIsPullingGithub(false);
     }
   };
 
-  const generateDrafts = async (regenerateAngle?: DraftAngle) => {
-    if (!user || notes.trim().length < 20) {
-      toast.error("Add a few more real notes first.");
-      return;
+  // ---- Source switching ----
+  const switchSource = (next: SourceKey) => {
+    setActiveSource(next);
+  };
+
+  const useCurrentLovableProject = () => {
+    setNotes((c) => c.trim() ? `${c.trim()}\n\n---\n\n${currentProjectSeed}` : currentProjectSeed);
+    if (!topic.trim()) setTopic("Lovable build — current project");
+    toast.success("Lovable project context added.");
+  };
+
+  const handleTranscriptUpload = async (files: FileList | null) => {
+    if (!files || !files.length) return;
+    const MAX = 2_000_000;
+    const chunks: string[] = [];
+    let firstName = "";
+    for (const file of Array.from(files)) {
+      if (file.size > MAX) { toast.error(`${file.name} is too large (max 2MB).`); continue; }
+      if (!/\.(txt|md|markdown|vtt|srt)$/i.test(file.name) && !file.type.startsWith("text/")) {
+        toast.error(`${file.name} isn't a text/transcript file.`); continue;
+      }
+      const raw = await file.text();
+      const cleaned = stripTranscriptFormatting(raw);
+      chunks.push(`--- ${file.name} ---\n${cleaned}`);
+      if (!firstName) firstName = file.name.replace(/\.[^.]+$/, "");
     }
-    setIsGenerating(true);
+    if (!chunks.length) return;
+    setNotes((c) => c.trim() ? `${c.trim()}\n\n${chunks.join("\n\n")}` : chunks.join("\n\n"));
+    if (!topic.trim() && firstName) setTopic(firstName.replace(/[-_]+/g, " ").trim());
+    toast.success(`Loaded ${chunks.length} transcript${chunks.length > 1 ? "s" : ""}.`);
+  };
+
+  // ---- Create + generate draft ----
+  const createDraft = async (alsoGenerate: boolean) => {
+    if (!user) return;
+    if (notes.trim().length < 20) { toast.error("Add a few more notes first."); return; }
+    setIsCreating(true);
+    const finalTopic = topic.trim() || deriveTopicFromText(notes);
     const client = supabase as any;
-    const { data: note, error: noteError } = await client
-      .from("writing_notes")
-      .insert({ user_id: user.id, content: notes.trim(), raw_mode: rawMode, source: noteSource })
-      .select("id")
+    const { data, error } = await client
+      .from("webinars")
+      .insert({
+        user_id: user.id,
+        title: finalTopic,
+        topic: finalTopic,
+        source: activeSource,
+        notes: notes.trim(),
+        context: context.trim() || null,
+        watched_at: new Date().toISOString().slice(0, 10),
+      })
+      .select("*")
       .single();
+    setIsCreating(false);
+    if (error) { toast.error(error.message); return; }
+    setDrafts((c) => [data, ...c]);
+    setTopic(""); setNotes(""); setContext("");
+    toast.success("Draft saved.");
+    if (alsoGenerate) await generateForDraft(data, "", "");
+  };
 
-    if (noteError) {
-      setIsGenerating(false);
-      toast.error(noteError.message);
-      return;
-    }
-
-    const { data, error } = await supabase.functions.invoke("generate-drafts", {
-      body: { noteId: note.id, notes: notes.trim(), rawMode, selectedPatterns, regenerateAngle },
+  const generateForDraft = async (draft: Draft, instructions: string, editedPost: string) => {
+    setGeneratingId(draft.id);
+    const previous = (editedPost.trim() || draft.generated_post || "").trim() || null;
+    const effectiveContext = instructions.trim() || draft.context || "";
+    const { data, error } = await supabase.functions.invoke("generate-webinar-post", {
+      body: {
+        mode: "post",
+        webinarId: draft.id,
+        title: draft.topic || draft.title,
+        presenter: draft.presenter,
+        notes: draft.notes,
+        context: effectiveContext || null,
+        previousPost: previous,
+      },
     });
-    setIsGenerating(false);
-
-    if (error || data?.error) {
-      toast.error(data?.error || error?.message || "Draft generation failed.");
-      return;
+    setGeneratingId(null);
+    if (error || data?.error) { toast.error(data?.error || error?.message || "Generation failed."); return; }
+    if (instructions.trim() && instructions.trim() !== (draft.context ?? "")) {
+      const client = supabase as any;
+      await client.from("webinars").update({ context: instructions.trim() }).eq("id", draft.id);
     }
+    setDrafts((c) => c.map((d) => d.id === draft.id ? { ...d, generated_post: data.post, context: instructions.trim() || d.context } : d));
+    toast.success(previous ? "Draft updated." : "Draft generated.");
+  };
 
-    const nextDrafts = data.drafts ?? [];
-    setDrafts((current) => [...nextDrafts, ...current]);
-    setSelectedDraftId(nextDrafts[0]?.id ?? null);
-    toast.success(regenerateAngle ? "Draft regenerated." : "Three draft angles generated.");
+  const confirmFinal = async (draft: Draft, finalText: string) => {
+    const client = supabase as any;
+    const value = finalText.trim() || null;
+    const { error } = await client.from("webinars").update({ final_version: value }).eq("id", draft.id);
+    if (error) { toast.error(error.message); return; }
+    setDrafts((c) => c.map((d) => d.id === draft.id ? { ...d, final_version: value } : d));
+    toast.success(value ? "Final saved. Voice will improve over time." : "Final cleared.");
+  };
+
+  const deleteDraft = async (id: string) => {
+    const client = supabase as any;
+    const { error } = await client.from("webinars").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setDrafts((c) => c.filter((d) => d.id !== id));
   };
 
   const copyText = async (text: string) => {
     await navigator.clipboard.writeText(text);
     toast.success("Copied.");
   };
-
-  const toggleTag = (tag: string) => {
-    if (!selectedDraft) return;
-    setDrafts((current) =>
-      current.map((draft) =>
-        draft.id === selectedDraft.id
-          ? { ...draft, tags: draft.tags.includes(tag) ? draft.tags.filter((item) => item !== tag) : [...draft.tags, tag] }
-          : draft,
-      ),
-    );
-  };
-
-  const selectDraft = async (draft: Draft) => {
-    if (!user) return;
-    const client = supabase as any;
-    await client.from("post_drafts").update({ is_selected: false }).eq("user_id", user.id).eq("note_id", draft.note_id);
-    const { error } = await client.from("post_drafts").update({ is_selected: true, selected_at: new Date().toISOString() }).eq("id", draft.id);
-    await client.from("preference_signals").insert({ user_id: user.id, draft_id: draft.id, signal_type: "selected", angle: draft.angle });
-    if (error) toast.error(error.message);
-    else {
-      setSelectedDraftId(draft.id);
-      setDrafts((current) => current.map((item) => ({ ...item, is_selected: item.id === draft.id ? true : item.is_selected })));
-      toast.success("Draft selected.");
-    }
-  };
-
-  const scheduleSelectedDraft = async () => {
-    if (!user || !selectedDraft) return;
-    const scheduledFor = nextPostingDate(scheduleDay, scheduleTime);
-    const client = supabase as any;
-    const { data, error } = await client
-      .from("scheduled_posts")
-      .insert({
-        user_id: user.id,
-        draft_id: selectedDraft.id,
-        note_id: selectedDraft.note_id,
-        scheduled_for: scheduledFor.toISOString(),
-        timezone: profile.timezone,
-        copy_snapshot: selectedDraft.content,
-        tags: selectedDraft.tags,
-      })
-      .select("*")
-      .single();
-
-    if (error) toast.error(error.message);
-    else {
-      setScheduled((current) => [...current, data].sort((a, b) => +new Date(a.scheduled_for) - +new Date(b.scheduled_for)));
-      toast.success(`Scheduled for ${format(scheduledFor, "EEE, MMM d 'at' h:mm a")}.`);
-    }
-  };
-
-  const updatePostStatus = async (post: ScheduledPost, status: ScheduledPost["status"]) => {
-    const client = supabase as any;
-    const patch = status === "posted" ? { status, posted_at: new Date().toISOString() } : { status };
-    const { error } = await client.from("scheduled_posts").update(patch).eq("id", post.id);
-    if (error) toast.error(error.message);
-    else setScheduled((current) => current.map((item) => (item.id === post.id ? { ...item, ...patch } : item)));
-  };
-
-  const snoozePost = async (post: ScheduledPost) => {
-    const next = new Date(Date.now() + 2 * 60 * 60 * 1000).toISOString();
-    const client = supabase as any;
-    const { error } = await client.from("scheduled_posts").update({ status: "snoozed", snoozed_until: next, scheduled_for: next }).eq("id", post.id);
-    if (error) toast.error(error.message);
-    else setScheduled((current) => current.map((item) => (item.id === post.id ? { ...item, status: "snoozed", scheduled_for: next } : item)));
-  };
-
-  const deriveWebinarTitle = (explicit: string, context: string, notes: string) => {
-    const fromExplicit = explicit.trim();
-    if (fromExplicit) return fromExplicit.slice(0, 200);
-    const source = (context.trim() || notes.trim()).replace(/\s+/g, " ");
-    if (!source) return "Untitled webinar";
-    const firstSentence = source.split(/(?<=[.!?])\s/)[0] ?? source;
-    const cleaned = firstSentence.replace(/^["'`*#-]+\s*/, "").trim();
-    return (cleaned.length > 80 ? cleaned.slice(0, 77).trimEnd() + "…" : cleaned) || "Untitled webinar";
-  };
-
-  const addWebinar = async () => {
-    if (!user || webinarNotes.trim().length < 20) {
-      toast.error("Add at least a few lines of notes.");
-      return;
-    }
-    const derivedTitle = deriveWebinarTitle(webinarTitle, webinarContext, webinarNotes);
-    setSavingWebinar(true);
-    const client = supabase as any;
-    const { data, error } = await client
-      .from("webinars")
-      .insert({
-        user_id: user.id,
-        title: derivedTitle,
-        presenter: webinarPresenter.trim() || null,
-        notes: webinarNotes.trim(),
-        context: webinarContext.trim() || null,
-        watched_at: webinarWatchedAt,
-      })
-      .select("*")
-      .single();
-    setSavingWebinar(false);
-    if (error) { toast.error(error.message); return; }
-    setWebinars((c) => [data, ...c]);
-    setWebinarTitle(""); setWebinarPresenter(""); setWebinarNotes(""); setWebinarContext("");
-    toast.success("Webinar saved.");
-  };
-
-  const generateWebinarPost = async (webinar: Webinar, contextOverride?: string) => {
-    setGeneratingWebinarId(webinar.id);
-    const effectiveContext = (contextOverride ?? webinar.context ?? "").trim();
-    const iterating = Boolean(webinar.generated_post);
-    const { data, error } = await supabase.functions.invoke("generate-webinar-post", {
-      body: {
-        mode: "post",
-        webinarId: webinar.id,
-        title: webinar.title,
-        presenter: webinar.presenter,
-        notes: webinar.notes,
-        context: effectiveContext || null,
-        previousPost: iterating ? webinar.generated_post : null,
-      },
-    });
-    setGeneratingWebinarId(null);
-    if (error || data?.error) { toast.error(data?.error || error?.message || "Generation failed."); return; }
-    // Persist the latest context the user iterated with
-    if (effectiveContext !== (webinar.context ?? "")) {
-      const client = supabase as any;
-      await client.from("webinars").update({ context: effectiveContext || null }).eq("id", webinar.id);
-    }
-    setWebinars((c) => c.map((w) => w.id === webinar.id ? { ...w, generated_post: data.post, context: effectiveContext || null } : w));
-    toast.success(iterating ? "Post updated with your tweaks." : "Authentic post generated.");
-  };
-
-  const deleteWebinar = async (id: string) => {
-    const client = supabase as any;
-    const { error } = await client.from("webinars").delete().eq("id", id);
-    if (error) { toast.error(error.message); return; }
-    setWebinars((c) => c.filter((w) => w.id !== id));
-  };
-
-  const saveFinalVersion = async (id: string, finalText: string) => {
-    const client = supabase as any;
-    const value = finalText.trim() || null;
-    const { error } = await client.from("webinars").update({ final_version: value }).eq("id", id);
-    if (error) { toast.error(error.message); return; }
-    setWebinars((c) => c.map((w) => w.id === id ? { ...w, final_version: value } : w));
-    toast.success(value ? "Final version saved. Voice will improve over time." : "Final version cleared.");
-  };
-
-  const generateRollup = async () => {
-    setIsRollingUp(true);
-    const { data, error } = await supabase.functions.invoke("generate-webinar-post", { body: { mode: "rollup" } });
-    setIsRollingUp(false);
-    if (error || data?.error) { toast.error(data?.error || error?.message || "Roll-up failed."); return; }
-    setRollupSummary(data.summary || "");
-  };
-
-  const filteredDrafts = drafts.filter((draft) => tagFilter === "all" || draft.tags.includes(tagFilter));
-  const upcomingPosts = scheduled.filter((post) => post.status !== "posted");
-  const postedPosts = scheduled.filter((post) => post.status === "posted");
 
   if (!user) {
     return (
@@ -573,11 +473,10 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
             <div className="flex h-full flex-col justify-center gap-8">
               <div className="space-y-6">
                 <Badge variant="secondary" className="w-fit">Private writing studio</Badge>
-                <h1 className="max-w-3xl text-5xl font-semibold leading-[0.98] tracking-normal text-foreground sm:text-7xl">If you can’t beat the AI slop, make better slop.</h1>
+                <h1 className="max-w-3xl text-5xl font-semibold leading-[0.98] tracking-normal text-foreground sm:text-7xl">If you can't beat the AI slop, make better slop.</h1>
                 <div className="max-w-2xl space-y-3 text-base leading-7 text-muted-foreground sm:text-lg">
-                  <p>Turn what you’re already building into something worth sharing. No extra thinking. No “content creation.”</p>
-                  <p>Turn messy build notes, failed prompts, and half-finished thoughts into posts that still sound like a person was there.</p>
-                  <p>Let’s all get left behind</p>
+                  <p>Turn what you're already building into something worth sharing.</p>
+                  <p>Messy build notes, transcripts, GitHub activity, half-finished thoughts — into posts that still sound like a person was there.</p>
                 </div>
               </div>
             </div>
@@ -586,11 +485,11 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
             <CardContent className="space-y-4 p-5">
               <div className="space-y-2">
                 <Label>Email</Label>
-                <Input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} type="email" placeholder="you@example.com" />
+                <Input value={authEmail} onChange={(e) => setAuthEmail(e.target.value)} type="email" placeholder="you@example.com" />
               </div>
               <div className="space-y-2">
                 <Label>Password</Label>
-                <Input value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} type="password" placeholder="At least 6 characters" />
+                <Input value={authPassword} onChange={(e) => setAuthPassword(e.target.value)} type="password" placeholder="At least 6 characters" />
               </div>
               <div className="grid grid-cols-2 gap-2">
                 <Button onClick={() => signIn("signin")} disabled={isAuthLoading}>{isAuthLoading ? <Loader2 className="animate-spin" /> : null} Sign in</Button>
@@ -600,61 +499,11 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
             </CardContent>
           </Card>
         </section>
-
-        <section className="mx-auto mt-4 grid w-full max-w-6xl gap-4 lg:grid-cols-[0.95fr_1.05fr]">
-          <div className="glass-panel rounded-lg p-5 sm:p-6">
-            <Badge variant="outline" className="w-fit">What it does</Badge>
-            <div className="mt-5 space-y-5">
-              <h2 className="max-w-xl font-display text-3xl font-semibold leading-tight sm:text-5xl">Your build already has the post inside it.</h2>
-              <div className="space-y-4 text-base leading-7 text-muted-foreground">
-                <p>This app pulls from your prompts, notes, and work in progress, figures out what you were trying to do, and turns it into real, useful learnings.</p>
-                <p>You don’t sit down to write posts. You build. Every prompt, experiment, and half-finished idea already contains signal.</p>
-                <p>This app reads that mess and turns it into something others can learn from.</p>
-              </div>
-            </div>
-          </div>
-
-          <div className="grid gap-4 sm:grid-cols-2">
-            {[
-              ["Ingests your raw work", "Prompts, notes, experiments, repo activity, whatever you’re already doing"],
-              ["Understands intent and outcomes", "What you were trying to do, what broke, what changed"],
-              ["Generates drafts", "Three different takes: insight, story, tactical"],
-              ["Keeps you consistent", "Pick one, schedule it, get reminded to post"],
-            ].map(([title, copy], index) => (
-              <div key={title} className="glass-tile rounded-lg p-5">
-                <div className="mb-5 flex h-10 w-10 items-center justify-center rounded-md bg-primary/15 text-primary">
-                  {index === 0 ? <PenLine /> : index === 1 ? <Sparkles /> : index === 2 ? <Archive /> : <CalendarClock />}
-                </div>
-                <h3 className="font-display text-xl font-semibold leading-6">{title}</h3>
-                <p className="mt-3 text-sm leading-6 text-muted-foreground">{copy}</p>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section className="mx-auto mt-4 grid w-full max-w-6xl gap-4 lg:grid-cols-[1.05fr_0.95fr]">
-          <div className="glass-panel rounded-lg p-5 sm:p-6">
-            <h2 className="font-display text-3xl font-semibold leading-tight sm:text-4xl">Most people don’t share what they learn because:</h2>
-            <div className="mt-6 grid gap-3 sm:grid-cols-3">
-              {[
-                "It feels like extra work",
-                "They think they need insights upfront",
-                "They overthink or never publish",
-              ].map((reason) => (
-                <div key={reason} className="glass-tile rounded-lg p-4 text-sm leading-6 text-muted-foreground">{reason}</div>
-              ))}
-            </div>
-          </div>
-
-          <div className="glass-panel slop-stage rounded-lg p-5 sm:p-6">
-            <Badge variant="secondary" className="w-fit">This flips it</Badge>
-            <p className="mt-5 font-display text-3xl font-semibold leading-tight sm:text-4xl">You don’t create insights first.</p>
-            <p className="mt-4 text-base leading-7 text-muted-foreground">You build, and the insights get extracted after. A system that turns messy, real work into useful signal for other builders.</p>
-          </div>
-        </section>
       </main>
     );
   }
+
+  const ActiveSourceIcon = sourceMeta[activeSource].icon;
 
   return (
     <main className="min-h-screen text-foreground">
@@ -663,280 +512,154 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
           <div className="space-y-2">
             <Badge variant="secondary" className="w-fit">AI build notes</Badge>
             <h1 className="text-4xl font-semibold tracking-normal sm:text-6xl">Writing studio</h1>
-            <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">Experiments, failures, observations, half-baked ideas. Specifics first. Polish later.</p>
+            <p className="max-w-2xl text-sm leading-6 text-muted-foreground sm:text-base">One draft per topic. Pick a source, give it some notes, iterate until it sounds like you.</p>
           </div>
           <Button variant="ghost" onClick={() => supabase.auth.signOut()} className="w-fit"><LogOut /> Sign out</Button>
         </header>
 
-        <section className="grid gap-5 lg:grid-cols-[minmax(0,1.25fr)_minmax(340px,0.75fr)]">
-          <div className="glass-panel space-y-4 rounded-lg p-4 sm:p-5">
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        {/* New Draft */}
+        <section className="glass-panel space-y-5 rounded-lg p-4 sm:p-5">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h2 className="text-xl font-medium">Rough notes</h2>
-              <p className="text-sm text-muted-foreground">Paste notes, pull this project context, or import public GitHub activity.</p>
+              <h2 className="text-xl font-medium">New draft</h2>
+              <p className="text-sm text-muted-foreground">{sourceMeta[activeSource].hint}</p>
             </div>
             <div className="glass-tile flex items-center gap-3 rounded-lg px-3 py-2">
               <Label htmlFor="raw-mode" className="text-sm">Make it more raw</Label>
               <Switch id="raw-mode" checked={rawMode} onCheckedChange={setRawMode} />
             </div>
-            </div>
-            <Textarea
-              value={notes}
-              onChange={(event) => setNotes(event.target.value)}
-              placeholder="What I tried... what broke... the weird workaround... the part that changed my mind..."
-              className="min-h-[300px] resize-y rounded-lg bg-card/80 text-base leading-7"
-            />
-            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-              <p className="text-sm text-muted-foreground">{wordCount(notes)} words in notes</p>
-              <Button onClick={() => generateDrafts()} disabled={isGenerating} size="lg" className="w-full sm:w-fit">
-                {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />} Generate 3 drafts
-              </Button>
-            </div>
           </div>
 
-          <div className="grid gap-5">
-            <div className="glass-panel grid gap-3 rounded-lg p-4">
-            <div className="space-y-3">
-              <Label>Import source</Label>
-              <div className="grid grid-cols-3 gap-2">
-                <Button type="button" variant={noteSource === "manual" ? "secondary" : "outline"} onClick={() => setNoteSource("manual")}>Paste</Button>
-                <Button type="button" variant={noteSource === "lovable" ? "secondary" : "outline"} onClick={useCurrentLovableProject}>Lovable</Button>
-                <Button type="button" variant={noteSource === "github" ? "secondary" : "outline"} onClick={() => setNoteSource("github")}><Github /></Button>
-              </div>
-            </div>
-            <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
-              <Input value={githubHandle} onChange={(event) => setGithubHandle(event.target.value)} placeholder="GitHub username" />
-              <Input value={githubRepo} onChange={(event) => setGithubRepo(event.target.value)} placeholder="Optional repo" />
-              <Button type="button" variant="outline" onClick={importGitHubActivity} disabled={isImportingSource}>
-                {isImportingSource ? <Loader2 className="animate-spin" /> : <Github />} Import
-              </Button>
-            </div>
-            </div>
-
-            <Card className="glass-panel rounded-lg shadow-none">
-              <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><Mail /> Reminder settings</CardTitle></CardHeader>
-              <CardContent className="space-y-4">
-                <div className="space-y-2">
-                  <Label>Timezone</Label>
-                  <Input value={profile.timezone} onChange={(event) => setProfile({ ...profile, timezone: event.target.value })} />
-                </div>
-                <p className="text-sm leading-6 text-muted-foreground">Email reminders are ready in the app logic. A sender domain still needs to be connected before they can be delivered.</p>
-                <Button variant="outline" onClick={saveSettings}>Save defaults</Button>
-              </CardContent>
-            </Card>
+          {/* Source picker */}
+          <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+            {(Object.keys(sourceMeta) as SourceKey[]).map((key) => {
+              const Icon = sourceMeta[key].icon;
+              const active = activeSource === key;
+              return (
+                <Button
+                  key={key}
+                  type="button"
+                  variant={active ? "secondary" : "outline"}
+                  onClick={() => switchSource(key)}
+                  className="h-auto flex-col gap-1 py-3"
+                >
+                  <Icon className="h-5 w-5" />
+                  <span className="text-sm">{sourceMeta[key].label}</span>
+                </Button>
+              );
+            })}
           </div>
-        </section>
 
-        <section className="glass-panel space-y-4 rounded-lg p-4 sm:p-5">
-          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <h2 className="text-xl font-medium">Draft options</h2>
-            <Select value={tagFilter} onValueChange={setTagFilter}>
-              <SelectTrigger className="w-44"><SelectValue /></SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All tags</SelectItem>
-                {tagOptions.map((tag) => <SelectItem key={tag} value={tag}>{tag}</SelectItem>)}
-              </SelectContent>
-            </Select>
-          </div>
-          <div className="grid auto-rows-fr gap-4 lg:grid-cols-3">
-            {filteredDrafts.slice(0, 9).map((draft) => (
-              <Card key={draft.id} className={`glass-tile rounded-lg shadow-none ${selectedDraftId === draft.id ? "ring-2 ring-primary" : ""}`}>
-                <CardHeader className="space-y-3 p-4">
-                  <div className="flex items-start justify-between gap-3">
-                    <div>
-                      <Badge variant="outline">{angleLabels[draft.angle]}</Badge>
-                      <CardTitle className="mt-3 text-lg leading-6">{draft.title}</CardTitle>
-                    </div>
-                    {selectedDraftId === draft.id ? <Check className="mt-1 text-primary" /> : null}
+          {/* Source-specific control row */}
+          {activeSource === "github" ? (
+            <div className="glass-tile space-y-3 rounded-lg p-3">
+              {profile.github_handle ? (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div className="flex items-center gap-2">
+                    <Badge className="gap-1"><Link2 className="h-3 w-3" /> Connected</Badge>
+                    <span className="text-sm">@{profile.github_handle}{profile.github_repo ? ` / ${profile.github_repo}` : ""}</span>
                   </div>
-                  <p className="text-xs text-muted-foreground">{draft.word_count} words</p>
-                </CardHeader>
-                <CardContent className="space-y-4 p-4 pt-0">
-                  <p className="whitespace-pre-line text-sm leading-6">{draft.content}</p>
                   <div className="flex flex-wrap gap-2">
-                    {draft.tags.map((tag) => <Badge key={tag} variant="secondary">{tag}</Badge>)}
-                    {draft.quality_flags.map((flag) => <Badge key={flag} variant="outline">{flag}</Badge>)}
-                  </div>
-                  <div className="grid grid-cols-3 gap-2">
-                    <Button variant="secondary" size="sm" onClick={() => selectDraft(draft)}>Select</Button>
-                    <Button variant="outline" size="sm" onClick={() => copyText(draft.content)}><Clipboard /></Button>
-                    <Button variant="outline" size="sm" onClick={() => generateDrafts(draft.angle)}><RefreshCw /></Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-            {!filteredDrafts.length ? (
-              <div className="glass-tile rounded-lg border-dashed p-8 text-center text-sm text-muted-foreground lg:col-span-3">Generated drafts will appear here.</div>
-            ) : null}
-          </div>
-        </section>
-
-        <section className="grid gap-5 lg:grid-cols-[0.85fr_1.15fr]">
-          <Card className="glass-panel rounded-lg shadow-none">
-            <CardHeader><CardTitle className="flex items-center gap-2 text-xl"><CalendarClock /> Select and schedule</CardTitle></CardHeader>
-            <CardContent className="space-y-5">
-              {selectedDraft ? (
-                <div className="glass-tile space-y-3 rounded-lg p-4">
-                  <p className="text-sm font-medium">{selectedDraft.title}</p>
-                  <p className="line-clamp-4 text-sm leading-6 text-muted-foreground">{selectedDraft.content}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {tagOptions.map((tag) => (
-                      <button key={tag} onClick={() => toggleTag(tag)} className={`rounded-md border px-2 py-1 text-xs transition-colors ${selectedDraft.tags.includes(tag) ? "border-primary bg-primary text-primary-foreground" : "border-border bg-card text-muted-foreground"}`}>{tag}</button>
-                    ))}
+                    <Button size="sm" variant="secondary" onClick={pullGithubActivity} disabled={isPullingGithub}>
+                      {isPullingGithub ? <Loader2 className="animate-spin" /> : <Github />} Pull recent activity
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={unlinkGithub}><Link2Off /> Unlink</Button>
                   </div>
                 </div>
-              ) : <p className="text-sm text-muted-foreground">Select one draft to schedule it.</p>}
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="space-y-2">
-                  <Label>Posting day</Label>
-                  <Select value={scheduleDay} onValueChange={(value: any) => setScheduleDay(value)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="monday">Monday</SelectItem>
-                      <SelectItem value="wednesday">Wednesday</SelectItem>
-                      <SelectItem value="thursday">Thursday</SelectItem>
-                    </SelectContent>
-                  </Select>
+              ) : (
+                <div className="grid gap-2 sm:grid-cols-[1fr_1fr_auto]">
+                  <Input value={githubHandleInput} onChange={(e) => setGithubHandleInput(e.target.value)} placeholder="GitHub username" />
+                  <Input value={githubRepoInput} onChange={(e) => setGithubRepoInput(e.target.value)} placeholder="Optional repo" />
+                  <Button onClick={linkGithub} disabled={isLinkingGithub}>
+                    {isLinkingGithub ? <Loader2 className="animate-spin" /> : <Link2 />} Link GitHub
+                  </Button>
                 </div>
-                <div className="space-y-2">
-                  <Label>Reminder time</Label>
-                  <Input value={scheduleTime} onChange={(event) => setScheduleTime(event.target.value)} type="time" />
-                </div>
-              </div>
-              <Button onClick={scheduleSelectedDraft} disabled={!selectedDraft} className="w-full sm:w-fit"><PenLine /> Schedule selected draft</Button>
-            </CardContent>
-          </Card>
-
-          <section className="glass-panel space-y-4 rounded-lg p-4 sm:p-5">
-            <h2 className="text-xl font-medium">Upcoming queue</h2>
-            <div className="space-y-3">
-              {upcomingPosts.map((post) => (
-                <Card key={post.id} className="glass-tile rounded-lg shadow-none">
-                  <CardContent className="flex flex-col gap-4 p-4 xl:flex-row xl:items-center xl:justify-between">
-                    <div className="space-y-2">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <Badge>{post.status}</Badge>
-                        <span className="text-sm text-muted-foreground">{format(new Date(post.scheduled_for), "EEE, MMM d • h:mm a")}</span>
-                      </div>
-                      <p className="line-clamp-3 text-sm leading-6">{post.copy_snapshot}</p>
-                    </div>
-                    <div className="grid grid-cols-3 gap-2 xl:w-72">
-                      <Button variant="outline" size="sm" onClick={() => copyText(post.copy_snapshot)}>Copy</Button>
-                      <Button variant="secondary" size="sm" onClick={() => updatePostStatus(post, "posted")}>Posted</Button>
-                      <Button variant="outline" size="sm" onClick={() => snoozePost(post)}>Snooze</Button>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
-              {!upcomingPosts.length ? <div className="glass-tile rounded-lg border-dashed p-6 text-sm text-muted-foreground">No upcoming posts yet.</div> : null}
+              )}
             </div>
-          </section>
-        </section>
-
-        <section className="glass-panel space-y-4 rounded-lg p-4 pb-5 sm:p-5">
-          <h2 className="flex items-center gap-2 text-xl font-medium"><Archive /> Past drafts and posts</h2>
-          <div className="grid gap-4 lg:grid-cols-2">
-            <Card className="glass-tile rounded-lg shadow-none">
-              <CardHeader><CardTitle className="text-base">Recent drafts</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                {drafts.slice(0, 5).map((draft) => <p key={draft.id} className="border-b border-border pb-3 text-sm leading-6 last:border-0">{draft.title}</p>)}
-              </CardContent>
-            </Card>
-            <Card className="glass-tile rounded-lg shadow-none">
-              <CardHeader><CardTitle className="text-base">Posted</CardTitle></CardHeader>
-              <CardContent className="space-y-3">
-                {postedPosts.slice(0, 5).map((post) => <p key={post.id} className="border-b border-border pb-3 text-sm leading-6 last:border-0">{post.copy_snapshot}</p>)}
-                {!postedPosts.length ? <p className="text-sm text-muted-foreground">Marked-as-posted items will collect here.</p> : null}
-              </CardContent>
-            </Card>
-          </div>
-        </section>
-
-        <section className="glass-panel space-y-4 rounded-lg p-4 sm:p-5">
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
-            <div>
-              <h2 className="flex items-center gap-2 text-xl font-medium"><Video /> Webinars watched</h2>
-              <p className="text-sm text-muted-foreground">Tracked separately from Lovable / GitHub notes. Each one generates an authentic post focused on real learnings or hot takes.</p>
-            </div>
-            <Button variant="outline" onClick={generateRollup} disabled={isRollingUp || !webinars.length}>
-              {isRollingUp ? <Loader2 className="animate-spin" /> : <FileText />} Roll-up summary
-            </Button>
-          </div>
-
-          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_180px]">
-            <Input value={webinarTitle} onChange={(e) => setWebinarTitle(e.target.value)} placeholder="Webinar title (optional — auto-derived from notes)" />
-            <Input value={webinarPresenter} onChange={(e) => setWebinarPresenter(e.target.value)} placeholder="Presenter (optional)" />
-            <Input type="date" value={webinarWatchedAt} onChange={(e) => setWebinarWatchedAt(e.target.value)} />
-          </div>
-          <Textarea
-            value={webinarNotes}
-            onChange={(e) => setWebinarNotes(e.target.value)}
-            placeholder="Your notes from the webinar — quotes, hot takes, things you disagreed with, what you'd actually use..."
-            className="min-h-[140px] resize-y rounded-lg bg-card/80 text-sm leading-6"
-          />
-          <Textarea
-            value={webinarContext}
-            onChange={(e) => setWebinarContext(e.target.value)}
-            placeholder="Context or instructions (optional) — e.g. who the audience is, the angle to take, things to avoid, key background..."
-            className="min-h-[80px] resize-y rounded-lg bg-card/80 text-sm leading-6"
-          />
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-            <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-foreground">
-              <FileText className="h-4 w-4" />
-              <span>Attach a text file (.txt, .md)</span>
-              <input
-                type="file"
-                accept=".txt,.md,.markdown,text/plain,text/markdown"
-                multiple
-                className="hidden"
-                onChange={async (e) => {
-                  const files = Array.from(e.target.files ?? []);
-                  if (!files.length) return;
-                  const MAX = 1_000_000;
-                  const chunks: string[] = [];
-                  for (const file of files) {
-                    if (file.size > MAX) { toast.error(`${file.name} is too large (max 1MB).`); continue; }
-                    if (!/\.(txt|md|markdown)$/i.test(file.name) && !file.type.startsWith("text/")) {
-                      toast.error(`${file.name} isn't a text file.`); continue;
-                    }
-                    const text = await file.text();
-                    chunks.push(`--- ${file.name} ---\n${text.trim()}`);
-                  }
-                  if (chunks.length) {
-                    setWebinarNotes((current) => (current.trim() ? `${current.trim()}\n\n${chunks.join("\n\n")}` : chunks.join("\n\n")));
-                    toast.success(`Attached ${chunks.length} file${chunks.length > 1 ? "s" : ""}.`);
-                  }
-                  e.target.value = "";
-                }}
-              />
-            </label>
-            <Button onClick={addWebinar} disabled={savingWebinar}>
-              {savingWebinar ? <Loader2 className="animate-spin" /> : <PenLine />} Save webinar
-            </Button>
-          </div>
-
-          {rollupSummary ? (
-            <Card className="glass-tile rounded-lg shadow-none">
-              <CardHeader><CardTitle className="text-base">Roll-up across {webinars.length} webinars</CardTitle></CardHeader>
-              <CardContent><p className="whitespace-pre-line text-sm leading-6">{rollupSummary}</p></CardContent>
-            </Card>
           ) : null}
 
+          {activeSource === "lovable" ? (
+            <Button variant="outline" onClick={useCurrentLovableProject} className="w-fit">
+              <Sparkles /> Pull current Lovable project context
+            </Button>
+          ) : null}
+
+          {activeSource === "transcript" ? (
+            <label className="glass-tile flex cursor-pointer items-center justify-between gap-3 rounded-lg p-3 hover:bg-card/80">
+              <div className="flex items-center gap-2 text-sm">
+                <FileText className="h-4 w-4" />
+                <span>Upload transcript file (.txt, .md, .vtt, .srt — max 2MB)</span>
+              </div>
+              <span className="text-xs text-muted-foreground">Topic auto-fills from filename</span>
+              <input
+                type="file"
+                accept=".txt,.md,.markdown,.vtt,.srt,text/plain,text/markdown"
+                multiple
+                className="hidden"
+                onChange={(e) => { handleTranscriptUpload(e.target.files); e.target.value = ""; }}
+              />
+            </label>
+          ) : null}
+
+          {/* Topic + Notes + Context */}
+          <div className="grid gap-3">
+            <div className="space-y-2">
+              <Label>Topic / category</Label>
+              <Input
+                value={topic}
+                onChange={(e) => setTopic(e.target.value)}
+                placeholder="What is this draft about? (auto-derived if blank)"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label className="flex items-center gap-2"><ActiveSourceIcon className="h-4 w-4" /> Notes</Label>
+              <Textarea
+                value={notes}
+                onChange={(e) => setNotes(e.target.value)}
+                placeholder="What I tried... what broke... the part that changed my mind..."
+                className="min-h-[200px] resize-y rounded-lg bg-card/80 text-base leading-7"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label>Context / instructions (optional)</Label>
+              <Textarea
+                value={context}
+                onChange={(e) => setContext(e.target.value)}
+                placeholder="Audience, angle, things to avoid, key background..."
+                className="min-h-[70px] resize-y text-sm leading-6"
+              />
+            </div>
+          </div>
+
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm text-muted-foreground">{notes.trim() ? `${notes.trim().split(/\s+/).filter(Boolean).length} words` : "No notes yet"} • saves automatically when you generate</p>
+            <Button onClick={() => createDraft(true)} disabled={isCreating} size="lg">
+              {isCreating ? <Loader2 className="animate-spin" /> : <Sparkles />} Generate draft
+            </Button>
+          </div>
+        </section>
+
+        {/* Drafts */}
+        <section className="glass-panel space-y-4 rounded-lg p-4 sm:p-5">
+          <div className="flex items-center justify-between">
+            <h2 className="text-xl font-medium">Drafts</h2>
+            <span className="text-sm text-muted-foreground">{drafts.length} total</span>
+          </div>
           <div className="grid gap-3 lg:grid-cols-2">
-            {webinars.map((w) => (
-              <WebinarCard
-                key={w.id}
-                webinar={w}
-                isGenerating={generatingWebinarId === w.id}
-                onGenerate={(ctx) => generateWebinarPost(w, ctx)}
-                onDelete={() => deleteWebinar(w.id)}
-                onCopy={(t) => copyText(t)}
-                onSaveFinal={(text) => saveFinalVersion(w.id, text)}
+            {drafts.map((d) => (
+              <DraftCard
+                key={d.id}
+                draft={d}
+                isGenerating={generatingId === d.id}
+                onGenerate={(instructions, editedPost) => generateForDraft(d, instructions, editedPost)}
+                onConfirmFinal={(text) => confirmFinal(d, text)}
+                onDelete={() => deleteDraft(d.id)}
+                onCopy={copyText}
               />
             ))}
-            {!webinars.length ? (
-              <div className="glass-tile rounded-lg border-dashed p-6 text-center text-sm text-muted-foreground lg:col-span-2">
-                No webinars logged yet. Add one above to start tracking.
+            {!drafts.length ? (
+              <div className="glass-tile rounded-lg border-dashed p-8 text-center text-sm text-muted-foreground lg:col-span-2">
+                Your drafts will appear here, one per topic.
               </div>
             ) : null}
           </div>

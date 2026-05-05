@@ -113,6 +113,8 @@ export type Database = {
           created_at: string
           default_reminder_time: string
           email: string | null
+          github_handle: string | null
+          github_repo: string | null
           id: string
           raw_mode_default: boolean
           timezone: string
@@ -123,6 +125,8 @@ export type Database = {
           created_at?: string
           default_reminder_time?: string
           email?: string | null
+          github_handle?: string | null
+          github_repo?: string | null
           id?: string
           raw_mode_default?: boolean
           timezone?: string
@@ -133,6 +137,8 @@ export type Database = {
           created_at?: string
           default_reminder_time?: string
           email?: string | null
+          github_handle?: string | null
+          github_repo?: string | null
           id?: string
           raw_mode_default?: boolean
           timezone?: string
@@ -219,8 +225,10 @@ export type Database = {
           id: string
           notes: string
           presenter: string | null
+          source: string
           tags: string[]
           title: string
+          topic: string | null
           updated_at: string
           user_id: string
           watched_at: string
@@ -233,8 +241,10 @@ export type Database = {
           id?: string
           notes: string
           presenter?: string | null
+          source?: string
           tags?: string[]
           title: string
+          topic?: string | null
           updated_at?: string
           user_id: string
           watched_at?: string
@@ -247,8 +257,10 @@ export type Database = {
           id?: string
           notes?: string
           presenter?: string | null
+          source?: string
           tags?: string[]
           title?: string
+          topic?: string | null
           updated_at?: string
           user_id?: string
           watched_at?: string
