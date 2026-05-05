@@ -474,18 +474,29 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
     else setScheduled((current) => current.map((item) => (item.id === post.id ? { ...item, status: "snoozed", scheduled_for: next } : item)));
   };
 
+  const deriveWebinarTitle = (explicit: string, context: string, notes: string) => {
+    const fromExplicit = explicit.trim();
+    if (fromExplicit) return fromExplicit.slice(0, 200);
+    const source = (context.trim() || notes.trim()).replace(/\s+/g, " ");
+    if (!source) return "Untitled webinar";
+    const firstSentence = source.split(/(?<=[.!?])\s/)[0] ?? source;
+    const cleaned = firstSentence.replace(/^["'`*#-]+\s*/, "").trim();
+    return (cleaned.length > 80 ? cleaned.slice(0, 77).trimEnd() + "…" : cleaned) || "Untitled webinar";
+  };
+
   const addWebinar = async () => {
-    if (!user || !webinarTitle.trim() || webinarNotes.trim().length < 20) {
-      toast.error("Add a title and at least a few lines of notes.");
+    if (!user || webinarNotes.trim().length < 20) {
+      toast.error("Add at least a few lines of notes.");
       return;
     }
+    const derivedTitle = deriveWebinarTitle(webinarTitle, webinarContext, webinarNotes);
     setSavingWebinar(true);
     const client = supabase as any;
     const { data, error } = await client
       .from("webinars")
       .insert({
         user_id: user.id,
-        title: webinarTitle.trim(),
+        title: derivedTitle,
         presenter: webinarPresenter.trim() || null,
         notes: webinarNotes.trim(),
         context: webinarContext.trim() || null,
