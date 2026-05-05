@@ -723,6 +723,83 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
             </Card>
           </div>
         </section>
+
+        <section className="glass-panel space-y-4 rounded-lg p-4 sm:p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 text-xl font-medium"><Video /> Webinars watched</h2>
+              <p className="text-sm text-muted-foreground">Tracked separately from Lovable / GitHub notes. Each one generates an authentic post focused on real learnings or hot takes.</p>
+            </div>
+            <Button variant="outline" onClick={generateRollup} disabled={isRollingUp || !webinars.length}>
+              {isRollingUp ? <Loader2 className="animate-spin" /> : <FileText />} Roll-up summary
+            </Button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_180px]">
+            <Input value={webinarTitle} onChange={(e) => setWebinarTitle(e.target.value)} placeholder="Webinar title" />
+            <Input value={webinarPresenter} onChange={(e) => setWebinarPresenter(e.target.value)} placeholder="Presenter (optional)" />
+            <Input type="date" value={webinarWatchedAt} onChange={(e) => setWebinarWatchedAt(e.target.value)} />
+          </div>
+          <Textarea
+            value={webinarNotes}
+            onChange={(e) => setWebinarNotes(e.target.value)}
+            placeholder="Your notes from the webinar — quotes, hot takes, things you disagreed with, what you'd actually use..."
+            className="min-h-[140px] resize-y rounded-lg bg-card/80 text-sm leading-6"
+          />
+          <div className="flex justify-end">
+            <Button onClick={addWebinar} disabled={savingWebinar}>
+              {savingWebinar ? <Loader2 className="animate-spin" /> : <PenLine />} Save webinar
+            </Button>
+          </div>
+
+          {rollupSummary ? (
+            <Card className="glass-tile rounded-lg shadow-none">
+              <CardHeader><CardTitle className="text-base">Roll-up across {webinars.length} webinars</CardTitle></CardHeader>
+              <CardContent><p className="whitespace-pre-line text-sm leading-6">{rollupSummary}</p></CardContent>
+            </Card>
+          ) : null}
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            {webinars.map((w) => (
+              <Card key={w.id} className="glass-tile rounded-lg shadow-none">
+                <CardHeader className="space-y-2 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <CardTitle className="text-base leading-5">{w.title}</CardTitle>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {w.presenter ? `${w.presenter} • ` : ""}{format(new Date(w.watched_at), "MMM d, yyyy")}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => deleteWebinar(w.id)}><Trash2 /></Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 p-4 pt-0">
+                  <p className="line-clamp-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">{w.notes}</p>
+                  {w.generated_post ? (
+                    <div className="rounded-md border border-border bg-card/60 p-3">
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">Authentic post</p>
+                      <p className="whitespace-pre-line text-sm leading-6">{w.generated_post}</p>
+                    </div>
+                  ) : null}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="secondary" size="sm" onClick={() => generateWebinarPost(w)} disabled={generatingWebinarId === w.id}>
+                      {generatingWebinarId === w.id ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                      {w.generated_post ? "Regenerate" : "Generate post"}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => copyText(w.generated_post || w.notes)} disabled={!w.generated_post}>
+                      <Clipboard /> Copy
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {!webinars.length ? (
+              <div className="glass-tile rounded-lg border-dashed p-6 text-center text-sm text-muted-foreground lg:col-span-2">
+                No webinars logged yet. Add one above to start tracking.
+              </div>
+            ) : null}
+          </div>
+        </section>
       </div>
     </main>
   );
