@@ -426,6 +426,15 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
     setWebinars((c) => c.filter((w) => w.id !== id));
   };
 
+  const saveFinalVersion = async (id: string, finalText: string) => {
+    const client = supabase as any;
+    const value = finalText.trim() || null;
+    const { error } = await client.from("webinars").update({ final_version: value }).eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setWebinars((c) => c.map((w) => w.id === id ? { ...w, final_version: value } : w));
+    toast.success(value ? "Final version saved. Voice will improve over time." : "Final version cleared.");
+  };
+
   const generateRollup = async () => {
     setIsRollingUp(true);
     const { data, error } = await supabase.functions.invoke("generate-webinar-post", { body: { mode: "rollup" } });
