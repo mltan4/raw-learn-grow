@@ -471,6 +471,7 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
         title: webinarTitle.trim(),
         presenter: webinarPresenter.trim() || null,
         notes: webinarNotes.trim(),
+        context: webinarContext.trim() || null,
         watched_at: webinarWatchedAt,
       })
       .select("*")
@@ -478,7 +479,7 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
     setSavingWebinar(false);
     if (error) { toast.error(error.message); return; }
     setWebinars((c) => [data, ...c]);
-    setWebinarTitle(""); setWebinarPresenter(""); setWebinarNotes("");
+    setWebinarTitle(""); setWebinarPresenter(""); setWebinarNotes(""); setWebinarContext("");
     toast.success("Webinar saved.");
   };
 
