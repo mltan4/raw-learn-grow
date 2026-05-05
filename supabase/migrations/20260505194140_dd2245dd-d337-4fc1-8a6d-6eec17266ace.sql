@@ -1,0 +1,7 @@
+ALTER TABLE public.profiles
+  ADD COLUMN IF NOT EXISTS github_handle TEXT,
+  ADD COLUMN IF NOT EXISTS github_repo TEXT;
+
+ALTER TABLE public.webinars
+  ADD COLUMN IF NOT EXISTS source TEXT NOT NULL DEFAULT 'manual',
+  ADD COLUMN IF NOT EXISTS topic TEXT;
