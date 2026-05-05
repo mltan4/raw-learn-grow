@@ -59,7 +59,7 @@ serve(async (req) => {
     let userPrompt = "";
 
     if (parsed.data.mode === "post") {
-      const { title, presenter, notes, context } = parsed.data;
+      const { title, presenter, notes, context, previousPost } = parsed.data;
 
       // Pull recent final versions as voice samples
       const { data: voiceSamples } = await supabase
@@ -75,10 +75,18 @@ serve(async (req) => {
       const voiceBlock = samples.length
         ? `\n\nHere are recent posts the user actually published or edited into their final form. Match this voice — sentence rhythm, word choices, level of casualness, how they open and close:\n\n${samples.map((s, i) => `Sample ${i + 1}:\n${s}`).join("\n\n---\n\n")}\n\n`
         : "";
-      const contextBlock = context && context.trim()
-        ? `\n\nExtra instructions / context from the user (follow these closely):\n${context.trim()}\n`
-        : "";
-      userPrompt = `Webinar: ${title}${presenter ? ` by ${presenter}` : ""}${contextBlock}\n\nMy notes:\n${notes}${voiceBlock}\nWrite ONE authentic post in the user's voice. Lead with a real learning or hot take — specific, slightly contrarian if it fits. Don't summarize the whole webinar. Pick the one idea worth sharing and say what they actually think.`;
+
+      if (previousPost && previousPost.trim()) {
+        const tweakBlock = context && context.trim()
+          ? `User's revision instructions (apply these to the previous post — DO NOT start over from the notes unless asked):\n${context.trim()}\n`
+          : `No specific instructions given — make a modest improvement pass: tighten, sharpen the take, cut filler. Keep the core idea.\n`;
+        userPrompt = `Webinar: ${title}${presenter ? ` by ${presenter}` : ""}\n\nPrevious draft of the post:\n"""\n${previousPost.trim()}\n"""\n\n${tweakBlock}\nOriginal notes (reference only — the previous draft is the starting point):\n${notes}${voiceBlock}\nReturn ONE revised post in the user's voice. Output the post only — no preamble, no explanation.`;
+      } else {
+        const contextBlock = context && context.trim()
+          ? `\n\nExtra instructions / context from the user (follow these closely):\n${context.trim()}\n`
+          : "";
+        userPrompt = `Webinar: ${title}${presenter ? ` by ${presenter}` : ""}${contextBlock}\n\nMy notes:\n${notes}${voiceBlock}\nWrite ONE authentic post in the user's voice. Lead with a real learning or hot take — specific, slightly contrarian if it fits. Don't summarize the whole webinar. Pick the one idea worth sharing and say what they actually think.`;
+      }
     } else {
       const { data: webinars } = await supabase
         .from("webinars")
