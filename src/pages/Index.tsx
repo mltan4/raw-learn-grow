@@ -771,36 +771,6 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
 
           <div className="grid gap-3 lg:grid-cols-2">
             {webinars.map((w) => (
-              <Card key={w.id} className="glass-tile rounded-lg shadow-none">
-                <CardHeader className="space-y-2 p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div>
-                      <CardTitle className="text-base leading-5">{w.title}</CardTitle>
-                      <p className="mt-1 text-xs text-muted-foreground">
-                        {w.presenter ? `${w.presenter} • ` : ""}{format(new Date(w.watched_at), "MMM d, yyyy")}
-                      </p>
-                    </div>
-                    <Button variant="ghost" size="icon" onClick={() => deleteWebinar(w.id)}><Trash2 /></Button>
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3 p-4 pt-0">
-                  <p className="line-clamp-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">{w.notes}</p>
-                  {w.generated_post ? (
-                    <div className="rounded-md border border-border bg-card/60 p-3">
-                      <p className="mb-2 text-xs font-medium text-muted-foreground">Authentic post</p>
-                      <p className="whitespace-pre-line text-sm leading-6">{w.generated_post}</p>
-                    </div>
-                  ) : null}
-                  <div className="grid grid-cols-2 gap-2">
-                    <Button variant="secondary" size="sm" onClick={() => generateWebinarPost(w)} disabled={generatingWebinarId === w.id}>
-                      {generatingWebinarId === w.id ? <Loader2 className="animate-spin" /> : <Sparkles />}
-                      {w.generated_post ? "Regenerate" : "Generate post"}
-                    </Button>
-                    <Button variant="outline" size="sm" onClick={() => copyText(w.generated_post || w.notes)} disabled={!w.generated_post}>
-                      <Clipboard /> Copy
-                    </Button>
-                  </div>
-                </CardContent>
               <WebinarCard
                 key={w.id}
                 webinar={w}
