@@ -12,6 +12,9 @@ import {
   PenLine,
   RefreshCw,
   Sparkles,
+  Video,
+  FileText,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { lovable } from "@/integrations/lovable";
