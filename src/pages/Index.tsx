@@ -99,6 +99,78 @@ const nextPostingDate = (day: "monday" | "wednesday" | "thursday", time: string)
 
 const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).length;
 
+type WebinarCardProps = {
+  webinar: Webinar;
+  isGenerating: boolean;
+  onGenerate: () => void;
+  onDelete: () => void;
+  onCopy: (text: string) => void;
+  onSaveFinal: (text: string) => void;
+};
+
+const WebinarCard = ({ webinar: w, isGenerating, onGenerate, onDelete, onCopy, onSaveFinal }: WebinarCardProps) => {
+  const [finalDraft, setFinalDraft] = useState(w.final_version ?? "");
+  const [showFinal, setShowFinal] = useState(Boolean(w.final_version));
+  useEffect(() => { setFinalDraft(w.final_version ?? ""); }, [w.final_version]);
+  const dirty = (finalDraft.trim() || null) !== (w.final_version ?? null);
+
+  return (
+    <Card className="glass-tile rounded-lg shadow-none">
+      <CardHeader className="space-y-2 p-4">
+        <div className="flex items-start justify-between gap-2">
+          <div>
+            <CardTitle className="text-base leading-5">{w.title}</CardTitle>
+            <p className="mt-1 text-xs text-muted-foreground">
+              {w.presenter ? `${w.presenter} • ` : ""}{format(new Date(w.watched_at), "MMM d, yyyy")}
+              {w.final_version ? <span className="ml-2 text-primary">• voice sample saved</span> : null}
+            </p>
+          </div>
+          <Button variant="ghost" size="icon" onClick={onDelete}><Trash2 /></Button>
+        </div>
+      </CardHeader>
+      <CardContent className="space-y-3 p-4 pt-0">
+        <p className="line-clamp-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">{w.notes}</p>
+        {w.generated_post ? (
+          <div className="rounded-md border border-border bg-card/60 p-3">
+            <p className="mb-2 text-xs font-medium text-muted-foreground">Authentic post</p>
+            <p className="whitespace-pre-line text-sm leading-6">{w.generated_post}</p>
+          </div>
+        ) : null}
+        <div className="grid grid-cols-2 gap-2">
+          <Button variant="secondary" size="sm" onClick={onGenerate} disabled={isGenerating}>
+            {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
+            {w.generated_post ? "Regenerate" : "Generate post"}
+          </Button>
+          <Button variant="outline" size="sm" onClick={() => onCopy(w.generated_post || w.notes)} disabled={!w.generated_post}>
+            <Clipboard /> Copy
+          </Button>
+        </div>
+
+        {showFinal || w.final_version ? (
+          <div className="space-y-2 rounded-md border border-dashed border-border bg-card/40 p-3">
+            <Label className="text-xs text-muted-foreground">My final version (what I actually posted)</Label>
+            <Textarea
+              value={finalDraft}
+              onChange={(e) => setFinalDraft(e.target.value)}
+              placeholder="Paste the version you actually posted. The tool learns your voice from these."
+              className="min-h-[100px] resize-y text-sm leading-6"
+            />
+            <div className="flex justify-end">
+              <Button size="sm" variant={dirty ? "default" : "outline"} onClick={() => onSaveFinal(finalDraft)} disabled={!dirty}>
+                <Check /> Save voice sample
+              </Button>
+            </div>
+          </div>
+        ) : (
+          <Button variant="ghost" size="sm" onClick={() => setShowFinal(true)} className="w-full justify-start text-muted-foreground">
+            <PenLine /> Add my final version
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+};
+
 const Index = () => {
   const [user, setUser] = useState<any>(null);
   const [authEmail, setAuthEmail] = useState("");
