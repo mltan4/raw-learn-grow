@@ -500,15 +500,30 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
     toast.success("Webinar saved.");
   };
 
-  const generateWebinarPost = async (webinar: Webinar) => {
+  const generateWebinarPost = async (webinar: Webinar, contextOverride?: string) => {
     setGeneratingWebinarId(webinar.id);
+    const effectiveContext = (contextOverride ?? webinar.context ?? "").trim();
+    const iterating = Boolean(webinar.generated_post);
     const { data, error } = await supabase.functions.invoke("generate-webinar-post", {
-      body: { mode: "post", webinarId: webinar.id, title: webinar.title, presenter: webinar.presenter, notes: webinar.notes, context: webinar.context },
+      body: {
+        mode: "post",
+        webinarId: webinar.id,
+        title: webinar.title,
+        presenter: webinar.presenter,
+        notes: webinar.notes,
+        context: effectiveContext || null,
+        previousPost: iterating ? webinar.generated_post : null,
+      },
     });
     setGeneratingWebinarId(null);
     if (error || data?.error) { toast.error(data?.error || error?.message || "Generation failed."); return; }
-    setWebinars((c) => c.map((w) => w.id === webinar.id ? { ...w, generated_post: data.post } : w));
-    toast.success("Authentic post generated.");
+    // Persist the latest context the user iterated with
+    if (effectiveContext !== (webinar.context ?? "")) {
+      const client = supabase as any;
+      await client.from("webinars").update({ context: effectiveContext || null }).eq("id", webinar.id);
+    }
+    setWebinars((c) => c.map((w) => w.id === webinar.id ? { ...w, generated_post: data.post, context: effectiveContext || null } : w));
+    toast.success(iterating ? "Post updated with your tweaks." : "Authentic post generated.");
   };
 
   const deleteWebinar = async (id: string) => {
