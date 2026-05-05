@@ -103,7 +103,7 @@ const wordCount = (text: string) => text.trim().split(/\s+/).filter(Boolean).len
 type WebinarCardProps = {
   webinar: Webinar;
   isGenerating: boolean;
-  onGenerate: () => void;
+  onGenerate: (contextOverride?: string) => void;
   onDelete: () => void;
   onCopy: (text: string) => void;
   onSaveFinal: (text: string) => void;
@@ -112,7 +112,9 @@ type WebinarCardProps = {
 const WebinarCard = ({ webinar: w, isGenerating, onGenerate, onDelete, onCopy, onSaveFinal }: WebinarCardProps) => {
   const [finalDraft, setFinalDraft] = useState(w.final_version ?? "");
   const [showFinal, setShowFinal] = useState(Boolean(w.final_version));
+  const [contextDraft, setContextDraft] = useState(w.context ?? "");
   useEffect(() => { setFinalDraft(w.final_version ?? ""); }, [w.final_version]);
+  useEffect(() => { setContextDraft(w.context ?? ""); }, [w.context]);
   const dirty = (finalDraft.trim() || null) !== (w.final_version ?? null);
 
   return (
