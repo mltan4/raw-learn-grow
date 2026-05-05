@@ -68,6 +68,7 @@ type Webinar = {
   notes: string;
   watched_at: string;
   generated_post: string | null;
+  final_version: string | null;
   tags: string[];
   created_at: string;
 };
