@@ -1,0 +1,1 @@
+ALTER TABLE public.webinars ADD COLUMN final_version TEXT;
