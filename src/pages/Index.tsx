@@ -917,7 +917,7 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
                 key={w.id}
                 webinar={w}
                 isGenerating={generatingWebinarId === w.id}
-                onGenerate={() => generateWebinarPost(w)}
+                onGenerate={(ctx) => generateWebinarPost(w, ctx)}
                 onDelete={() => deleteWebinar(w.id)}
                 onCopy={(t) => copyText(t)}
                 onSaveFinal={(text) => saveFinalVersion(w.id, text)}
