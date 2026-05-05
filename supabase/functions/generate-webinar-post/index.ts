@@ -58,8 +58,22 @@ serve(async (req) => {
 
     if (parsed.data.mode === "post") {
       const { title, presenter, notes } = parsed.data;
-      systemPrompt = "You write short, authentic build-in-public posts for someone who just watched a webinar. Sound like a person, not a recap bot. Focus on real learnings, hot takes, or contrarian beliefs that came up. No hype, no LinkedIn tone, no hooks. 90-160 words.";
-      userPrompt = `Webinar: ${title}${presenter ? ` by ${presenter}` : ""}\n\nMy notes:\n${notes}\n\nWrite ONE authentic post. Lead with a real learning or hot take from this webinar — something specific, slightly contrarian if it fits. Don't summarize the whole thing. Pick the one idea worth sharing and say what I actually think about it.`;
+
+      // Pull recent final versions as voice samples
+      const { data: voiceSamples } = await supabase
+        .from("webinars")
+        .select("final_version")
+        .eq("user_id", user.id)
+        .not("final_version", "is", null)
+        .order("updated_at", { ascending: false })
+        .limit(5);
+      const samples = (voiceSamples ?? []).map((s: any) => s.final_version).filter(Boolean);
+
+      systemPrompt = "You write short, authentic build-in-public posts for someone who just watched a webinar. Voice is warm and direct, like a conversation in Slack — first person, casual, no corporate polish. Focus on real learnings, hot takes, or contrarian beliefs. No hype, no LinkedIn tone, no hooks, no emojis unless the samples use them. 90-160 words.";
+      const voiceBlock = samples.length
+        ? `\n\nHere are recent posts the user actually published or edited into their final form. Match this voice — sentence rhythm, word choices, level of casualness, how they open and close:\n\n${samples.map((s, i) => `Sample ${i + 1}:\n${s}`).join("\n\n---\n\n")}\n\n`
+        : "";
+      userPrompt = `Webinar: ${title}${presenter ? ` by ${presenter}` : ""}\n\nMy notes:\n${notes}${voiceBlock}\nWrite ONE authentic post in the user's voice. Lead with a real learning or hot take — specific, slightly contrarian if it fits. Don't summarize the whole webinar. Pick the one idea worth sharing and say what they actually think.`;
     } else {
       const { data: webinars } = await supabase
         .from("webinars")
