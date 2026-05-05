@@ -486,7 +486,7 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
   const generateWebinarPost = async (webinar: Webinar) => {
     setGeneratingWebinarId(webinar.id);
     const { data, error } = await supabase.functions.invoke("generate-webinar-post", {
-      body: { mode: "post", webinarId: webinar.id, title: webinar.title, presenter: webinar.presenter, notes: webinar.notes },
+      body: { mode: "post", webinarId: webinar.id, title: webinar.title, presenter: webinar.presenter, notes: webinar.notes, context: webinar.context },
     });
     setGeneratingWebinarId(null);
     if (error || data?.error) { toast.error(data?.error || error?.message || "Generation failed."); return; }
