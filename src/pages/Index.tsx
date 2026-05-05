@@ -123,6 +123,17 @@ const Index = () => {
   const [githubRepo, setGithubRepo] = useState("");
   const [isImportingSource, setIsImportingSource] = useState(false);
 
+  // Webinars
+  const [webinars, setWebinars] = useState<Webinar[]>([]);
+  const [webinarTitle, setWebinarTitle] = useState("");
+  const [webinarPresenter, setWebinarPresenter] = useState("");
+  const [webinarNotes, setWebinarNotes] = useState("");
+  const [webinarWatchedAt, setWebinarWatchedAt] = useState(new Date().toISOString().slice(0, 10));
+  const [generatingWebinarId, setGeneratingWebinarId] = useState<string | null>(null);
+  const [savingWebinar, setSavingWebinar] = useState(false);
+  const [rollupSummary, setRollupSummary] = useState<string>("");
+  const [isRollingUp, setIsRollingUp] = useState(false);
+
   const selectedDraft = drafts.find((draft) => draft.id === selectedDraftId) ?? null;
 
   const selectedPatterns = useMemo(() => {
