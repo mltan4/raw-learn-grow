@@ -801,7 +801,15 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
                     </Button>
                   </div>
                 </CardContent>
-              </Card>
+              <WebinarCard
+                key={w.id}
+                webinar={w}
+                isGenerating={generatingWebinarId === w.id}
+                onGenerate={() => generateWebinarPost(w)}
+                onDelete={() => deleteWebinar(w.id)}
+                onCopy={(t) => copyText(t)}
+                onSaveFinal={(text) => saveFinalVersion(w.id, text)}
+              />
             ))}
             {!webinars.length ? (
               <div className="glass-tile rounded-lg border-dashed p-6 text-center text-sm text-muted-foreground lg:col-span-2">
