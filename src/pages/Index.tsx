@@ -174,12 +174,14 @@ const Index = () => {
       setRawMode(profileRow.raw_mode_default ?? false);
     }
 
-    const [{ data: draftRows }, { data: queueRows }] = await Promise.all([
+    const [{ data: draftRows }, { data: queueRows }, { data: webinarRows }] = await Promise.all([
       client.from("post_drafts").select("*").eq("user_id", currentUser.id).order("created_at", { ascending: false }).limit(30),
       client.from("scheduled_posts").select("*").eq("user_id", currentUser.id).order("scheduled_for", { ascending: true }).limit(30),
+      client.from("webinars").select("*").eq("user_id", currentUser.id).order("watched_at", { ascending: false }).limit(50),
     ]);
     setDrafts(draftRows ?? []);
     setScheduled(queueRows ?? []);
+    setWebinars(webinarRows ?? []);
   };
 
   const signIn = async (mode: "signin" | "signup") => {
