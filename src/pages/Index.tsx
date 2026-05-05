@@ -12,6 +12,9 @@ import {
   PenLine,
   RefreshCw,
   Sparkles,
+  Video,
+  FileText,
+  Trash2,
 } from "lucide-react";
 import { toast } from "sonner";
 import { lovable } from "@/integrations/lovable";
@@ -58,6 +61,16 @@ type Profile = {
 };
 
 type NoteSource = "manual" | "lovable" | "github";
+type Webinar = {
+  id: string;
+  title: string;
+  presenter: string | null;
+  notes: string;
+  watched_at: string;
+  generated_post: string | null;
+  tags: string[];
+  created_at: string;
+};
 
 const angleLabels: Record<DraftAngle, string> = {
   insight: "Insight-first",
@@ -110,6 +123,17 @@ const Index = () => {
   const [githubRepo, setGithubRepo] = useState("");
   const [isImportingSource, setIsImportingSource] = useState(false);
 
+  // Webinars
+  const [webinars, setWebinars] = useState<Webinar[]>([]);
+  const [webinarTitle, setWebinarTitle] = useState("");
+  const [webinarPresenter, setWebinarPresenter] = useState("");
+  const [webinarNotes, setWebinarNotes] = useState("");
+  const [webinarWatchedAt, setWebinarWatchedAt] = useState(new Date().toISOString().slice(0, 10));
+  const [generatingWebinarId, setGeneratingWebinarId] = useState<string | null>(null);
+  const [savingWebinar, setSavingWebinar] = useState(false);
+  const [rollupSummary, setRollupSummary] = useState<string>("");
+  const [isRollingUp, setIsRollingUp] = useState(false);
+
   const selectedDraft = drafts.find((draft) => draft.id === selectedDraftId) ?? null;
 
   const selectedPatterns = useMemo(() => {
@@ -150,12 +174,14 @@ const Index = () => {
       setRawMode(profileRow.raw_mode_default ?? false);
     }
 
-    const [{ data: draftRows }, { data: queueRows }] = await Promise.all([
+    const [{ data: draftRows }, { data: queueRows }, { data: webinarRows }] = await Promise.all([
       client.from("post_drafts").select("*").eq("user_id", currentUser.id).order("created_at", { ascending: false }).limit(30),
       client.from("scheduled_posts").select("*").eq("user_id", currentUser.id).order("scheduled_for", { ascending: true }).limit(30),
+      client.from("webinars").select("*").eq("user_id", currentUser.id).order("watched_at", { ascending: false }).limit(50),
     ]);
     setDrafts(draftRows ?? []);
     setScheduled(queueRows ?? []);
+    setWebinars(webinarRows ?? []);
   };
 
   const signIn = async (mode: "signin" | "signup") => {
@@ -354,6 +380,57 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
     const { error } = await client.from("scheduled_posts").update({ status: "snoozed", snoozed_until: next, scheduled_for: next }).eq("id", post.id);
     if (error) toast.error(error.message);
     else setScheduled((current) => current.map((item) => (item.id === post.id ? { ...item, status: "snoozed", scheduled_for: next } : item)));
+  };
+
+  const addWebinar = async () => {
+    if (!user || !webinarTitle.trim() || webinarNotes.trim().length < 20) {
+      toast.error("Add a title and at least a few lines of notes.");
+      return;
+    }
+    setSavingWebinar(true);
+    const client = supabase as any;
+    const { data, error } = await client
+      .from("webinars")
+      .insert({
+        user_id: user.id,
+        title: webinarTitle.trim(),
+        presenter: webinarPresenter.trim() || null,
+        notes: webinarNotes.trim(),
+        watched_at: webinarWatchedAt,
+      })
+      .select("*")
+      .single();
+    setSavingWebinar(false);
+    if (error) { toast.error(error.message); return; }
+    setWebinars((c) => [data, ...c]);
+    setWebinarTitle(""); setWebinarPresenter(""); setWebinarNotes("");
+    toast.success("Webinar saved.");
+  };
+
+  const generateWebinarPost = async (webinar: Webinar) => {
+    setGeneratingWebinarId(webinar.id);
+    const { data, error } = await supabase.functions.invoke("generate-webinar-post", {
+      body: { mode: "post", webinarId: webinar.id, title: webinar.title, presenter: webinar.presenter, notes: webinar.notes },
+    });
+    setGeneratingWebinarId(null);
+    if (error || data?.error) { toast.error(data?.error || error?.message || "Generation failed."); return; }
+    setWebinars((c) => c.map((w) => w.id === webinar.id ? { ...w, generated_post: data.post } : w));
+    toast.success("Authentic post generated.");
+  };
+
+  const deleteWebinar = async (id: string) => {
+    const client = supabase as any;
+    const { error } = await client.from("webinars").delete().eq("id", id);
+    if (error) { toast.error(error.message); return; }
+    setWebinars((c) => c.filter((w) => w.id !== id));
+  };
+
+  const generateRollup = async () => {
+    setIsRollingUp(true);
+    const { data, error } = await supabase.functions.invoke("generate-webinar-post", { body: { mode: "rollup" } });
+    setIsRollingUp(false);
+    if (error || data?.error) { toast.error(data?.error || error?.message || "Roll-up failed."); return; }
+    setRollupSummary(data.summary || "");
   };
 
   const filteredDrafts = drafts.filter((draft) => tagFilter === "all" || draft.tags.includes(tagFilter));
@@ -644,6 +721,83 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
                 {!postedPosts.length ? <p className="text-sm text-muted-foreground">Marked-as-posted items will collect here.</p> : null}
               </CardContent>
             </Card>
+          </div>
+        </section>
+
+        <section className="glass-panel space-y-4 rounded-lg p-4 sm:p-5">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-end sm:justify-between">
+            <div>
+              <h2 className="flex items-center gap-2 text-xl font-medium"><Video /> Webinars watched</h2>
+              <p className="text-sm text-muted-foreground">Tracked separately from Lovable / GitHub notes. Each one generates an authentic post focused on real learnings or hot takes.</p>
+            </div>
+            <Button variant="outline" onClick={generateRollup} disabled={isRollingUp || !webinars.length}>
+              {isRollingUp ? <Loader2 className="animate-spin" /> : <FileText />} Roll-up summary
+            </Button>
+          </div>
+
+          <div className="grid gap-3 sm:grid-cols-[1fr_1fr_180px]">
+            <Input value={webinarTitle} onChange={(e) => setWebinarTitle(e.target.value)} placeholder="Webinar title" />
+            <Input value={webinarPresenter} onChange={(e) => setWebinarPresenter(e.target.value)} placeholder="Presenter (optional)" />
+            <Input type="date" value={webinarWatchedAt} onChange={(e) => setWebinarWatchedAt(e.target.value)} />
+          </div>
+          <Textarea
+            value={webinarNotes}
+            onChange={(e) => setWebinarNotes(e.target.value)}
+            placeholder="Your notes from the webinar — quotes, hot takes, things you disagreed with, what you'd actually use..."
+            className="min-h-[140px] resize-y rounded-lg bg-card/80 text-sm leading-6"
+          />
+          <div className="flex justify-end">
+            <Button onClick={addWebinar} disabled={savingWebinar}>
+              {savingWebinar ? <Loader2 className="animate-spin" /> : <PenLine />} Save webinar
+            </Button>
+          </div>
+
+          {rollupSummary ? (
+            <Card className="glass-tile rounded-lg shadow-none">
+              <CardHeader><CardTitle className="text-base">Roll-up across {webinars.length} webinars</CardTitle></CardHeader>
+              <CardContent><p className="whitespace-pre-line text-sm leading-6">{rollupSummary}</p></CardContent>
+            </Card>
+          ) : null}
+
+          <div className="grid gap-3 lg:grid-cols-2">
+            {webinars.map((w) => (
+              <Card key={w.id} className="glass-tile rounded-lg shadow-none">
+                <CardHeader className="space-y-2 p-4">
+                  <div className="flex items-start justify-between gap-2">
+                    <div>
+                      <CardTitle className="text-base leading-5">{w.title}</CardTitle>
+                      <p className="mt-1 text-xs text-muted-foreground">
+                        {w.presenter ? `${w.presenter} • ` : ""}{format(new Date(w.watched_at), "MMM d, yyyy")}
+                      </p>
+                    </div>
+                    <Button variant="ghost" size="icon" onClick={() => deleteWebinar(w.id)}><Trash2 /></Button>
+                  </div>
+                </CardHeader>
+                <CardContent className="space-y-3 p-4 pt-0">
+                  <p className="line-clamp-3 whitespace-pre-line text-sm leading-6 text-muted-foreground">{w.notes}</p>
+                  {w.generated_post ? (
+                    <div className="rounded-md border border-border bg-card/60 p-3">
+                      <p className="mb-2 text-xs font-medium text-muted-foreground">Authentic post</p>
+                      <p className="whitespace-pre-line text-sm leading-6">{w.generated_post}</p>
+                    </div>
+                  ) : null}
+                  <div className="grid grid-cols-2 gap-2">
+                    <Button variant="secondary" size="sm" onClick={() => generateWebinarPost(w)} disabled={generatingWebinarId === w.id}>
+                      {generatingWebinarId === w.id ? <Loader2 className="animate-spin" /> : <Sparkles />}
+                      {w.generated_post ? "Regenerate" : "Generate post"}
+                    </Button>
+                    <Button variant="outline" size="sm" onClick={() => copyText(w.generated_post || w.notes)} disabled={!w.generated_post}>
+                      <Clipboard /> Copy
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+            {!webinars.length ? (
+              <div className="glass-tile rounded-lg border-dashed p-6 text-center text-sm text-muted-foreground lg:col-span-2">
+                No webinars logged yet. Add one above to start tracking.
+              </div>
+            ) : null}
           </div>
         </section>
       </div>
