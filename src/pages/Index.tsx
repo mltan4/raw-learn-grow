@@ -69,6 +69,7 @@ type Webinar = {
   watched_at: string;
   generated_post: string | null;
   final_version: string | null;
+  context: string | null;
   tags: string[];
   created_at: string;
 };
@@ -201,6 +202,7 @@ const Index = () => {
   const [webinarTitle, setWebinarTitle] = useState("");
   const [webinarPresenter, setWebinarPresenter] = useState("");
   const [webinarNotes, setWebinarNotes] = useState("");
+  const [webinarContext, setWebinarContext] = useState("");
   const [webinarWatchedAt, setWebinarWatchedAt] = useState(new Date().toISOString().slice(0, 10));
   const [generatingWebinarId, setGeneratingWebinarId] = useState<string | null>(null);
   const [savingWebinar, setSavingWebinar] = useState(false);
@@ -469,6 +471,7 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
         title: webinarTitle.trim(),
         presenter: webinarPresenter.trim() || null,
         notes: webinarNotes.trim(),
+        context: webinarContext.trim() || null,
         watched_at: webinarWatchedAt,
       })
       .select("*")
@@ -476,14 +479,14 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
     setSavingWebinar(false);
     if (error) { toast.error(error.message); return; }
     setWebinars((c) => [data, ...c]);
-    setWebinarTitle(""); setWebinarPresenter(""); setWebinarNotes("");
+    setWebinarTitle(""); setWebinarPresenter(""); setWebinarNotes(""); setWebinarContext("");
     toast.success("Webinar saved.");
   };
 
   const generateWebinarPost = async (webinar: Webinar) => {
     setGeneratingWebinarId(webinar.id);
     const { data, error } = await supabase.functions.invoke("generate-webinar-post", {
-      body: { mode: "post", webinarId: webinar.id, title: webinar.title, presenter: webinar.presenter, notes: webinar.notes },
+      body: { mode: "post", webinarId: webinar.id, title: webinar.title, presenter: webinar.presenter, notes: webinar.notes, context: webinar.context },
     });
     setGeneratingWebinarId(null);
     if (error || data?.error) { toast.error(data?.error || error?.message || "Generation failed."); return; }
@@ -827,6 +830,12 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
             onChange={(e) => setWebinarNotes(e.target.value)}
             placeholder="Your notes from the webinar — quotes, hot takes, things you disagreed with, what you'd actually use..."
             className="min-h-[140px] resize-y rounded-lg bg-card/80 text-sm leading-6"
+          />
+          <Textarea
+            value={webinarContext}
+            onChange={(e) => setWebinarContext(e.target.value)}
+            placeholder="Context or instructions (optional) — e.g. who the audience is, the angle to take, things to avoid, key background..."
+            className="min-h-[80px] resize-y rounded-lg bg-card/80 text-sm leading-6"
           />
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <label className="inline-flex cursor-pointer items-center gap-2 text-sm text-muted-foreground hover:text-foreground">

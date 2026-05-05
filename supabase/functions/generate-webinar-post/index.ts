@@ -13,6 +13,7 @@ const PostBody = z.object({
   title: z.string().trim().min(1).max(200),
   presenter: z.string().trim().max(120).optional().nullable(),
   notes: z.string().trim().min(20).max(200000),
+  context: z.string().trim().max(5000).optional().nullable(),
 });
 
 const RollupBody = z.object({
@@ -57,7 +58,7 @@ serve(async (req) => {
     let userPrompt = "";
 
     if (parsed.data.mode === "post") {
-      const { title, presenter, notes } = parsed.data;
+      const { title, presenter, notes, context } = parsed.data;
 
       // Pull recent final versions as voice samples
       const { data: voiceSamples } = await supabase
@@ -73,7 +74,10 @@ serve(async (req) => {
       const voiceBlock = samples.length
         ? `\n\nHere are recent posts the user actually published or edited into their final form. Match this voice — sentence rhythm, word choices, level of casualness, how they open and close:\n\n${samples.map((s, i) => `Sample ${i + 1}:\n${s}`).join("\n\n---\n\n")}\n\n`
         : "";
-      userPrompt = `Webinar: ${title}${presenter ? ` by ${presenter}` : ""}\n\nMy notes:\n${notes}${voiceBlock}\nWrite ONE authentic post in the user's voice. Lead with a real learning or hot take — specific, slightly contrarian if it fits. Don't summarize the whole webinar. Pick the one idea worth sharing and say what they actually think.`;
+      const contextBlock = context && context.trim()
+        ? `\n\nExtra instructions / context from the user (follow these closely):\n${context.trim()}\n`
+        : "";
+      userPrompt = `Webinar: ${title}${presenter ? ` by ${presenter}` : ""}${contextBlock}\n\nMy notes:\n${notes}${voiceBlock}\nWrite ONE authentic post in the user's voice. Lead with a real learning or hot take — specific, slightly contrarian if it fits. Don't summarize the whole webinar. Pick the one idea worth sharing and say what they actually think.`;
     } else {
       const { data: webinars } = await supabase
         .from("webinars")
