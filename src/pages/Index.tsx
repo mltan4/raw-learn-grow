@@ -864,7 +864,7 @@ Drafting instruction: turn this into rough notes first. Look for a specific chan
           </div>
 
           <div className="grid gap-3 sm:grid-cols-[1fr_1fr_180px]">
-            <Input value={webinarTitle} onChange={(e) => setWebinarTitle(e.target.value)} placeholder="Webinar title" />
+            <Input value={webinarTitle} onChange={(e) => setWebinarTitle(e.target.value)} placeholder="Webinar title (optional — auto-derived from notes)" />
             <Input value={webinarPresenter} onChange={(e) => setWebinarPresenter(e.target.value)} placeholder="Presenter (optional)" />
             <Input type="date" value={webinarWatchedAt} onChange={(e) => setWebinarWatchedAt(e.target.value)} />
           </div>
