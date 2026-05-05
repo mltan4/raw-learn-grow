@@ -202,6 +202,7 @@ const Index = () => {
   const [webinarTitle, setWebinarTitle] = useState("");
   const [webinarPresenter, setWebinarPresenter] = useState("");
   const [webinarNotes, setWebinarNotes] = useState("");
+  const [webinarContext, setWebinarContext] = useState("");
   const [webinarWatchedAt, setWebinarWatchedAt] = useState(new Date().toISOString().slice(0, 10));
   const [generatingWebinarId, setGeneratingWebinarId] = useState<string | null>(null);
   const [savingWebinar, setSavingWebinar] = useState(false);
