@@ -14,6 +14,7 @@ const PostBody = z.object({
   presenter: z.string().trim().max(120).optional().nullable(),
   notes: z.string().trim().min(20).max(200000),
   context: z.string().trim().max(5000).optional().nullable(),
+  previousPost: z.string().trim().max(20000).optional().nullable(),
 });
 
 const RollupBody = z.object({
