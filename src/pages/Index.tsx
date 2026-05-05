@@ -61,6 +61,16 @@ type Profile = {
 };
 
 type NoteSource = "manual" | "lovable" | "github";
+type Webinar = {
+  id: string;
+  title: string;
+  presenter: string | null;
+  notes: string;
+  watched_at: string;
+  generated_post: string | null;
+  tags: string[];
+  created_at: string;
+};
 
 const angleLabels: Record<DraftAngle, string> = {
   insight: "Insight-first",
