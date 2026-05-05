@@ -139,10 +139,25 @@ const WebinarCard = ({ webinar: w, isGenerating, onGenerate, onDelete, onCopy, o
             <p className="whitespace-pre-line text-sm leading-6">{w.generated_post}</p>
           </div>
         ) : null}
+
+        {w.generated_post ? (
+          <div className="space-y-2 rounded-md border border-border bg-card/40 p-3">
+            <Label className="text-xs text-muted-foreground">
+              Iterate on this post — your instructions tweak the generated post above (not the raw notes).
+            </Label>
+            <Textarea
+              value={contextDraft}
+              onChange={(e) => setContextDraft(e.target.value)}
+              placeholder="e.g. make it shorter, lead with the contrarian take, drop the second paragraph, sound more skeptical..."
+              className="min-h-[70px] resize-y text-sm leading-6"
+            />
+          </div>
+        ) : null}
+
         <div className="grid grid-cols-2 gap-2">
-          <Button variant="secondary" size="sm" onClick={onGenerate} disabled={isGenerating}>
+          <Button variant="secondary" size="sm" onClick={() => onGenerate(contextDraft)} disabled={isGenerating}>
             {isGenerating ? <Loader2 className="animate-spin" /> : <Sparkles />}
-            {w.generated_post ? "Regenerate" : "Generate post"}
+            {w.generated_post ? "Regenerate with tweaks" : "Generate post"}
           </Button>
           <Button variant="outline" size="sm" onClick={() => onCopy(w.generated_post || w.notes)} disabled={!w.generated_post}>
             <Clipboard /> Copy
