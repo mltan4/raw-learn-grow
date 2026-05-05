@@ -12,7 +12,7 @@ const PostBody = z.object({
   webinarId: z.string().uuid(),
   title: z.string().trim().min(1).max(200),
   presenter: z.string().trim().max(120).optional().nullable(),
-  notes: z.string().trim().min(20).max(20000),
+  notes: z.string().trim().min(20).max(200000),
 });
 
 const RollupBody = z.object({
